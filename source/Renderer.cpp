@@ -3,7 +3,7 @@
 
 namespace dae {
 
-	Renderer::Renderer(SDL_Window* pWindow) :
+	Renderer::Renderer(SDL_Window* pWindow):
 		m_pWindow(pWindow)
 	{
 		//Initialize
@@ -11,7 +11,7 @@ namespace dae {
 
 		//Initialize DirectX pipeline
 		const HRESULT result = InitializeDirectX();
-		if (result == S_OK)
+		if(result == S_OK)
 		{
 			m_IsInitialized = true;
 			std::cout << "DirectX is initialized and ready!\n";
@@ -24,7 +24,7 @@ namespace dae {
 
 	Renderer::~Renderer()
 	{
-		
+
 	}
 
 	void Renderer::Update(const Timer* pTimer)
@@ -35,7 +35,7 @@ namespace dae {
 
 	void Renderer::Render() const
 	{
-		if (!m_IsInitialized)
+		if(!m_IsInitialized)
 			return;
 
 	}
