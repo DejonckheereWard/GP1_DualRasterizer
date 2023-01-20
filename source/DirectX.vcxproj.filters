@@ -11,6 +11,9 @@
     <Filter Include="Shared">
       <UniqueIdentifier>{5fa073c4-55a9-430e-8812-786cf23196d2}</UniqueIdentifier>
     </Filter>
+    <Filter Include="DirectX">
+      <UniqueIdentifier>{7ae92d41-c12a-49ff-bc77-46749813ec01}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Renderer.h" />
@@ -35,11 +38,31 @@
     <ClInclude Include="Vector2.h">
       <Filter>Math</Filter>
     </ClInclude>
-    <ClInclude Include="pch.h" />
     <ClInclude Include="ColorRGB.h">
       <Filter>Math</Filter>
     </ClInclude>
     <ClInclude Include="Camera.h">
+      <Filter>Shared</Filter>
+    </ClInclude>
+    <ClInclude Include="Effect.h">
+      <Filter>DirectX</Filter>
+    </ClInclude>
+    <ClInclude Include="Mesh.h">
+      <Filter>Shared</Filter>
+    </ClInclude>
+    <ClInclude Include="pch.h">
+      <Filter>Misc</Filter>
+    </ClInclude>
+    <ClInclude Include="Utils.h">
+      <Filter>Misc</Filter>
+    </ClInclude>
+    <ClInclude Include="EffectVehicle.h">
+      <Filter>DirectX</Filter>
+    </ClInclude>
+    <ClInclude Include="EffectFire.h">
+      <Filter>DirectX</Filter>
+    </ClInclude>
+    <ClInclude Include="Texture.h">
       <Filter>Shared</Filter>
     </ClInclude>
   </ItemGroup>
@@ -61,8 +84,25 @@
     <ClCompile Include="Vector2.cpp">
       <Filter>Math</Filter>
     </ClCompile>
-    <ClCompile Include="pch.cpp" />
     <ClCompile Include="Camera.cpp">
+      <Filter>Shared</Filter>
+    </ClCompile>
+    <ClCompile Include="Effect.cpp">
+      <Filter>DirectX</Filter>
+    </ClCompile>
+    <ClCompile Include="Mesh.cpp">
+      <Filter>Shared</Filter>
+    </ClCompile>
+    <ClCompile Include="pch.cpp">
+      <Filter>Misc</Filter>
+    </ClCompile>
+    <ClCompile Include="EffectVehicle.cpp">
+      <Filter>DirectX</Filter>
+    </ClCompile>
+    <ClCompile Include="EffectFire.cpp">
+      <Filter>DirectX</Filter>
+    </ClCompile>
+    <ClCompile Include="Texture.cpp">
       <Filter>Shared</Filter>
     </ClCompile>
   </ItemGroup>
