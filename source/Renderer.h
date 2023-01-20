@@ -2,6 +2,7 @@
 
 struct SDL_Window;
 struct SDL_Surface;
+class Camera;
 
 using namespace dae;
 
@@ -9,8 +10,9 @@ class Renderer final
 {
 public:
 	Renderer(SDL_Window* pWindow);
-	~Renderer();
 
+	// Rule of 5
+	~Renderer();
 	Renderer(const Renderer&) = delete;
 	Renderer(Renderer&&) noexcept = delete;
 	Renderer& operator=(const Renderer&) = delete;
@@ -25,9 +27,11 @@ private:
 	int m_Width{};
 	int m_Height{};
 
+	
+
 	bool m_IsInitialized{ false };
 
-	std::unique_ptr<Camera> m_pCamera;  // Unique pointer for camera (could make it shared if needed)
+	Camera* m_pCamera;  // Unique pointer for camera (could make it shared if needed)
 	
 
 

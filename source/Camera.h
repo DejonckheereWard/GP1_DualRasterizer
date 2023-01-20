@@ -1,6 +1,7 @@
 #pragma once
 //#include "MathHelpers.h"
 #include "Math.h"
+#include "Camera.h"
 
 using namespace dae;
 

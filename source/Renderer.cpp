@@ -7,7 +7,7 @@
 
 Renderer::Renderer(SDL_Window* pWindow):
 	m_pWindow(pWindow),
-	m_pCamera{ std::make_unique<Camera>(Camera({0,0,0}, 45.0f, 1.0f, 100.0f)) }
+	m_pCamera{ new Camera({0,0,0}, 45.0f, 1.0f, 100.0f) }
 {
 	//Initialize
 	SDL_GetWindowSize(pWindow, &m_Width, &m_Height);
@@ -31,7 +31,7 @@ Renderer::Renderer(SDL_Window* pWindow):
 
 Renderer::~Renderer()
 {
-
+	delete m_pCamera;
 }
 
 void Renderer::Update(const Timer* pTimer)
