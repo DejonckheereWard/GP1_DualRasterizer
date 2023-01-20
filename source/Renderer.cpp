@@ -123,7 +123,7 @@ void Renderer::Update(const Timer* pTimer)
 void Renderer::Render() const
 {
 
-	if(m_RenderMethod == RenderMethod::Hardware)
+	if(m_RenderSettings.Method == RenderSettings::RenderMethod::Hardware)
 	{
 
 		if(!m_IsInitialized)
@@ -145,7 +145,7 @@ void Renderer::Render() const
 		// SWAP THE BACKBUFFER / PRESENT
 		m_pSwapChain->Present(0, 0);
 	}
-	else if(m_RenderMethod == RenderMethod::Software)
+	else if(m_RenderSettings.Method == RenderSettings::RenderMethod::Software)
 	{
 		return;
 	}
@@ -153,6 +153,50 @@ void Renderer::Render() const
 	{
 		assert(false && "No valid rendermethod");
 	}
+}
+
+void Renderer::ToggleRenderMethod()
+{
+}
+
+void Renderer::ToggleRotation()
+{
+}
+
+void Renderer::CycleCullMode()
+{
+}
+
+void Renderer::ToggleUniformClearColor()
+{
+}
+
+void Renderer::TogglePrintFPW()
+{
+}
+
+void Renderer::ToggleFireFX()
+{
+}
+
+void Renderer::ToggleSampleState()
+{
+}
+
+void Renderer::CycleShadingMode()
+{
+}
+
+void Renderer::ToggleNormalMap()
+{
+}
+
+void Renderer::ToggleDepthBuffer()
+{
+}
+
+void Renderer::ToggleBoundingBox()
+{
 }
 
 HRESULT Renderer::InitializeDirectX()

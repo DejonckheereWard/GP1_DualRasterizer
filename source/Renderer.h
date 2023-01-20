@@ -23,6 +23,56 @@ struct SceneSettings
 	ColorRGB AmbientLight;
 };
 
+
+struct RenderSettings
+{
+	enum class RenderMethod
+	{
+		Hardware,
+		Software
+	};
+
+	enum class CullMode
+	{
+		BackFace,
+		FrontFace,
+		None,
+	};
+
+	enum class SampleState
+	{
+		Point,
+		Linear,
+		Anisotropic
+	};
+
+	enum class ShadingMode
+	{
+		Combined,
+		ObservedArea,
+		Diffuse,		// Includes ObservedArea
+		Specular		// Includes ObservedArea
+	};
+
+	// Shared
+	RenderMethod Method = RenderMethod::Hardware;
+	bool RotateMeshes = false;
+	CullMode CullMode = CullMode::BackFace;
+	bool UniformClearColor = false;
+	bool PrintFPW = false;
+
+	// Hardware only
+	bool ShowFireFX = true;
+	SampleState SampleState = SampleState::Point;
+	
+	// Software only
+	ShadingMode ShadingMode = ShadingMode::Combined;
+	bool UseNormalMap = false;
+	bool ShowDepthBuffer = false;
+	bool ShowBoundingBox = false;
+	
+};
+
 class Renderer final
 {
 public:
@@ -33,11 +83,6 @@ public:
 		Anisotropic
 	};
 
-	enum class RenderMethod
-	{
-		Hardware,
-		Software
-	};
 
 
 
@@ -53,7 +98,26 @@ public:
 	void Update(const Timer* pTimer);
 	void Render() const;
 
-	void ToggleRenderMethod() { m_RenderMethod = m_RenderMethod == RenderMethod::Hardware ? RenderMethod::Software : RenderMethod::Hardware; }
+	// Shared
+	void ToggleRenderMethod();
+	void ToggleRotation();
+	void CycleCullMode();
+	void ToggleUniformClearColor();
+	void TogglePrintFPW();
+	
+	// Hardware
+	void ToggleFireFX();
+	void ToggleSampleState();
+
+	// Software
+	void CycleShadingMode();
+	void ToggleNormalMap();
+	void ToggleDepthBuffer();
+	void ToggleBoundingBox();
+
+	
+
+
 
 private:
 	SDL_Window* m_pWindow{};
@@ -68,9 +132,9 @@ private:
 	// Shared -----------------------------
 	Camera* m_pCamera;  // Unique pointer for camera (could make it shared if needed)
 	std::vector<Mesh*> m_MeshPtrs;
+	
+	RenderSettings m_RenderSettings{};
 	SceneSettings m_Scene;
-
-	RenderMethod m_RenderMethod{ RenderMethod::Hardware };
 
 	// Textures
 	Texture* m_pVehicleDiffuse{};

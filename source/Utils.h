@@ -5,6 +5,26 @@
 
 namespace Utils
 {
+	enum class TextColor
+	{
+		Black,
+		Blue,
+		Green,
+		Cyan,
+		Red,
+		Magenta,
+		Brown,
+		LightGray,
+		DarkGray,
+		LightBlue,
+		LightGreen,
+		LightCyan,
+		LightRed,
+		LightMagenta,
+		Yellow,
+		White
+	};
+
 	//Just parses vertices and indices
 #pragma warning(push)
 #pragma warning(disable : 4505) //Warning unreferenced local function
@@ -158,6 +178,11 @@ namespace Utils
 		return true;
 	}
 #pragma warning(pop)
+
+	void PrintColor(const std::string& text, TextColor textColor, const std::string& end = "\n")
+	{
+		std::cout << text << end;
+	}
 
 	template<typename T>
 	concept Releasable = requires(T ev)

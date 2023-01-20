@@ -33,7 +33,7 @@ int main(int argc, char* args[])
 		SDL_WINDOWPOS_UNDEFINED,
 		width, height, 0);
 
-	if (!pWindow)
+	if(!pWindow)
 		return 1;
 
 	//Initialize "framework"
@@ -44,22 +44,65 @@ int main(int argc, char* args[])
 	pTimer->Start();
 	float printTimer = 0.f;
 	bool isLooping = true;
-	while (isLooping)
+	while(isLooping)
 	{
 		//--------- Get input events ---------
 		SDL_Event e;
-		while (SDL_PollEvent(&e))
+		while(SDL_PollEvent(&e))
 		{
-			switch (e.type)
+			switch(e.type)
 			{
-			case SDL_QUIT:
-				isLooping = false;
-				break;
-			case SDL_KEYUP:
-				//Test for a key
-				//if (e.key.keysym.scancode == SDL_SCANCODE_X)
-				break;
-			default: ;
+				case SDL_QUIT:
+					isLooping = false;
+					break;
+				case SDL_KEYUP:
+					switch(e.key.keysym.scancode)
+					{
+						// Shared --------------------------------------------------------------
+						case SDL_SCANCODE_F1:
+							pRenderer->ToggleRenderMethod();
+							break;
+						case SDL_SCANCODE_F2:
+							pRenderer->ToggleRotation();
+							break;
+
+						case SDL_SCANCODE_F9:
+							pRenderer->CycleCullMode();
+							break;
+
+						case SDL_SCANCODE_F10:
+							pRenderer->ToggleUniformClearColor();
+							break;
+
+						case SDL_SCANCODE_F11:
+							pRenderer->TogglePrintFPW();
+							break;
+
+							// Hardware rasterizer only ----------------------------------------
+						case SDL_SCANCODE_F3:
+							pRenderer->ToggleFireFX();
+							break;
+						case SDL_SCANCODE_F4:
+							pRenderer->ToggleSampleState();
+							break;
+
+							// Software rasterizer only ----------------------------------------
+						case SDL_SCANCODE_F5:
+							pRenderer->CycleShadingMode();
+							break;
+
+						case SDL_SCANCODE_F6:
+							pRenderer->ToggleNormalMap();
+							break;
+						case SDL_SCANCODE_F7:
+							pRenderer->ToggleDepthBuffer();
+							break;
+						case SDL_SCANCODE_F8:
+							pRenderer->ToggleBoundingBox();
+							break;
+					}
+					break;
+				default:;
 			}
 		}
 
@@ -72,7 +115,7 @@ int main(int argc, char* args[])
 		//--------- Timer ---------
 		pTimer->Update();
 		printTimer += pTimer->GetElapsed();
-		if (printTimer >= 1.f)
+		if(printTimer >= 1.f)
 		{
 			printTimer = 0.f;
 			std::cout << "dFPS: " << pTimer->GetdFPS() << std::endl;
