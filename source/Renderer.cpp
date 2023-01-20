@@ -8,7 +8,7 @@ namespace dae {
 	{
 		//Initialize
 		SDL_GetWindowSize(pWindow, &m_Width, &m_Height);
-
+		
 		//Initialize DirectX pipeline
 		const HRESULT result = InitializeDirectX();
 		if(result == S_OK)

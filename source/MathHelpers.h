@@ -50,6 +50,19 @@ namespace dae
 		return v;
 	}
 
+	inline float Wrap(const float input, float lowerBound, float upperBound)
+	{
+		// Wraps the value back around to the lowerbound when overflowing, also in reverse back to upperbound
+		// Example: Wrap(5, 0, 10) = 5
+		// Example: Wrap(15, 0, 10) = 5
+		// Example: Wrap(-5, 0, 10) = 5
+
+		float range = upperBound - lowerBound;
+		if(input < lowerBound)
+			return upperBound - fmod(lowerBound - input, range);  // Fmod returns remainder of division
+		return lowerBound + fmod(input - lowerBound, range);
+	}
+
 	inline float Saturate(const float v)
 	{
 		if (v < 0.f) return 0.f;
