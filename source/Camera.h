@@ -9,16 +9,17 @@ class Camera final
 {
 public:
 	Camera() = default;
-	Camera(const Vector3& _origin, float _fovAngle, float _aspectRatio):
+	Camera(const Vector3& _origin = {}, float _fovAngle = 45.0f, float _near = 0.1f, float _far = 100.0f, float _aspectRatio = 1.0f):
 		m_Origin{ _origin },
 		m_FovAngle{ _fovAngle },
 		m_FovRatio{ tanf((_fovAngle * TO_RADIANS) / 2.f) },
+		m_NearPlane{ _near },
+		m_FarPlane{ _far },
 		m_AspectRatio{ _aspectRatio }
 	{
 		CalculateProjectionMatrix();
 		CalculateViewMatrix();
 	}
-
 
 	// Rule of 5
 	~Camera() = default;
@@ -29,29 +30,30 @@ public:
 
 	void Update(const Timer* pTimer);
 
-
 	Matrix GetViewMatrix() const { return m_ViewMatrix; };
 	Matrix GetInverseViewMatrix() const { return Matrix::Inverse(m_ViewMatrix); };
 	Matrix GetProjectionMatrix() const { return m_ProjectionMatrix; };
 
 private:
 	// Camera Settings
-	Vector3 m_Origin{ 0.f, 0.f, -10.f };
+	
+	Vector3 m_Origin;
+	const float m_FovAngle;
+	const float m_FovRatio;
+	float m_AspectRatio;
+	
+	// Camera frustum planes
+	const float m_NearPlane;
+	const float m_FarPlane;
+
+	// Camera control settings
 	const float m_MovementSpeed{ 15.0f };
 	const float m_RotationSpeed{ 30.0f };
 	const float m_KeyboardRotationSpeed{ 120.0f };
 
-	const float m_FovAngle{ 45.0f };
-	const float m_FovRatio{ tanf((m_FovAngle * TO_RADIANS) / 2.f) };
-	float m_AspectRatio{};
-
-	// Camera frustum planes
-	const float m_NearPlane{ 0.1f };
-	const float m_FarPlane{ 100.f };
-
 	// Current camera orientation  {pitch, yaw, roll};
 	Vector3 m_CameraOrientation{ 0.f, 0.f, 0.f };
-
+	
 	// Camera directions
 	Vector3 m_Forward{ Vector3::UnitZ };
 	Vector3 m_Up{ Vector3::UnitY };
