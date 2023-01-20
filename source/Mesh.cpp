@@ -1,15 +1,17 @@
 #include "pch.h"
 #include "Mesh.h"
-#include "EffectVehicle.h"
 #include <cassert>
 
-Mesh::Mesh(ID3D11Device* pDevice, Effect* pEffect, const std::vector<Vertex>& vertices, const std::vector<uint32_t> indices)
+Mesh::Mesh(ID3D11Device* pDevice, Effect* pEffect, const std::vector<Vertex>& vertices, const std::vector<uint32_t> indices, const Vector3& position)
 {
+	Translate(position);
+
+	// Init the position in the worldmatrix
+
 	// Create an instance of the effect class
 	m_pEffect = pEffect;
 	//m_pEffect = new Effect(pDevice, L"Resources/PosCol3D.fx");
 	m_pTechnique = m_pEffect->GetTechnique();
-
 
 	// Create vertex layout
 	static constexpr uint32_t numElements{ 4 };
@@ -49,9 +51,6 @@ Mesh::Mesh(ID3D11Device* pDevice, Effect* pEffect, const std::vector<Vertex>& ve
 
 	if(FAILED(result))
 		assert(false);
-
-
-
 
 	// Create vertex buffer
 	D3D11_BUFFER_DESC bufferDesc{};

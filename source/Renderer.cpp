@@ -1,18 +1,24 @@
 #include "pch.h"
 #include "Renderer.h"
 #include "Camera.h"
-//#include "Mesh.h";
-//#include "Utils.h"
+#include "Texture.h"
 
+#include "EffectVehicle.h"
+#include "EffectFire.h"
+#include <cassert>
 
 Renderer::Renderer(SDL_Window* pWindow):
 	m_pWindow(pWindow),
-	m_pCamera{ new Camera({0,0,0}, 45.0f, 1.0f, 100.0f) }
+	m_pCamera{ nullptr },
+	m_Scene{}
 {
 	//Initialize
 	SDL_GetWindowSize(pWindow, &m_Width, &m_Height);
 
-
+	// Not in the init list, because we need the width and height from previous function
+	m_pCamera = new Camera({ 0,0,0 }, 45.0f, 1.0f, 100.0f, m_Width / (float)m_Height);
+	m_Scene.AmbientLight = { 0.025f, 0.025f, 0.025f };
+	m_Scene.Light = DirectionalLight({ .577f, -.577f, .577f }, 7.f);  // Direction + Intensity
 
 
 
@@ -27,13 +33,43 @@ Renderer::Renderer(SDL_Window* pWindow):
 	{
 		std::cout << "DirectX initialization failed!\n";
 	}
+
+
+	// Load in the resources and materials
+	m_pVehicleMaterial = new EffectVehicle{ m_pDevice, L"Resources/ShaderFiles/ShaderDefault.fx" };
+	m_pFireMaterial = new EffectFire{ m_pDevice, L"Resources/ShaderFiles/ShaderTransparent.fx" };
+
+	m_pVehicleDiffuse = Texture::LoadFromFile(m_pDevice, "./Resources/vehicle_diffuse.png");
+	m_pVehicleNormal = Texture::LoadFromFile(m_pDevice, "./Resources/vehicle_normal.png");
+	m_pVehicleSpecular = Texture::LoadFromFile(m_pDevice, "./Resources/vehicle_specular.png");
+	m_pVehicleGloss = Texture::LoadFromFile(m_pDevice, "./Resources/vehicle_gloss.png");
+
+	m_pFireDiffuse = Texture::LoadFromFile(m_pDevice, "./Resources/fireFX_diffuse.png");
+
+	m_pVehicleMaterial->SetDiffuseMap(m_pVehicleDiffuse);
+	m_pVehicleMaterial->SetNormalMap(m_pVehicleNormal);
+	m_pVehicleMaterial->SetSpecularMap(m_pVehicleSpecular);
+	m_pVehicleMaterial->SetGlossinessMap(m_pVehicleGloss);
+
+	m_pFireMaterial->SetDiffuseMap(m_pFireDiffuse);
+
+	// Load in the meshes
+	std::vector<Vertex> vertices{};
+	std::vector<uint32_t> indices{};
+
+	Utils::ParseOBJ("./Resources/vehicle.obj", vertices, indices);
+	Mesh* pMesh = m_MeshPtrs.emplace_back(new Mesh{ m_pDevice, m_pVehicleMaterial, vertices, indices, {0, 0, 50.0f} });
+
+	Utils::ParseOBJ("./Resources/fireFX.obj", vertices, indices);
+	pMesh = m_MeshPtrs.emplace_back(new Mesh{ m_pDevice, m_pFireMaterial, vertices, indices, {0, 0, 50.0f} });
+
 }
 
 Renderer::~Renderer()
 {
 	using namespace Utils;
 
-	// Direct X stuff
+	// Deleting Direct X stuff
 	SafeRelease(m_pRenderTargetView);
 	SafeRelease(m_pRenderTargetBuffer);
 
@@ -48,21 +84,75 @@ Renderer::~Renderer()
 
 	SafeRelease(m_pDevice);
 
-	
+	// Deleting all the meshes
+	// Deleting using std::for_each (mostly a test what I can do with the algorithms from programming 3)
+	//std::for_each(begin(m_MeshPtrs), end(m_MeshPtrs), [](Mesh* pMesh){ delete pMesh; });
+	for(Mesh* pMesh : m_MeshPtrs)
+		delete pMesh;
+
+	m_MeshPtrs.clear();
+
+	// Delete all the textures and materials
+	delete m_pVehicleMaterial;
+	delete m_pVehicleDiffuse;
+	delete m_pVehicleNormal;
+	delete m_pVehicleSpecular;
+	delete m_pVehicleGloss;
+
+	delete m_pFireMaterial;
+	delete m_pFireDiffuse;
+
 	delete m_pCamera;
 }
 
 void Renderer::Update(const Timer* pTimer)
 {
+	m_pCamera->Update(pTimer);
+	const float degreesPerSecond{ 45.0f };
+	const float yawAngle = (pTimer->GetTotal() * degreesPerSecond) * TO_RADIANS;
+
+	// Scene update
+	for(Mesh* pMesh : m_MeshPtrs)
+	{
+		pMesh->RotateY(yawAngle);
+	}
 
 }
 
 
 void Renderer::Render() const
 {
-	if(!m_IsInitialized)
-		return;
 
+	if(m_RenderMethod == RenderMethod::Hardware)
+	{
+
+		if(!m_IsInitialized)
+			return;
+
+		// DirectX
+		//1. CLEAR RTV & DSV
+		const ColorRGB clearColor = ColorRGB{ 0.39f, 0.59f, 0.93f };
+		m_pDeviceContext->ClearRenderTargetView(m_pRenderTargetView, &clearColor.r);
+		m_pDeviceContext->ClearDepthStencilView(m_pDepthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.f, 0);
+
+		// 2. SET PIPELINE + INVOKE DRAWCALLS (= RENDER)
+		for(Mesh* pMesh : m_MeshPtrs)
+		{
+			Matrix worldViewProjectionMatrix{ pMesh->GetWorldMatrix() * m_pCamera->GetViewMatrix() * m_pCamera->GetProjectionMatrix() };
+			pMesh->Render(m_pDeviceContext, worldViewProjectionMatrix, m_pCamera->GetInverseViewMatrix());
+		}
+
+		// SWAP THE BACKBUFFER / PRESENT
+		m_pSwapChain->Present(0, 0);
+	}
+	else if(m_RenderMethod == RenderMethod::Software)
+	{
+		return;
+	}
+	else
+	{
+		assert(false && "No valid rendermethod");
+	}
 }
 
 HRESULT Renderer::InitializeDirectX()
