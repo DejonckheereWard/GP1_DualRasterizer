@@ -8,6 +8,8 @@
 #include <cassert>
 #include "Utils.h"
 
+#include <ppl.h>
+
 using Utils::PrintColor;
 using Utils::TextColor;
 
@@ -710,8 +712,16 @@ void Renderer::VertexTransformationFunction(const std::vector<Mesh*>& meshes) co
 
 		mesh->vertices_out.clear();
 		mesh->vertices_out.reserve(mesh->vertices.size());
-		for(const Vertex& vert : mesh->vertices)
+		
+		// For the parallelization, i wanted existing slots to fill in the out vertices, hen
+		// Using pushback or emplace back made the order of vertices all messed up (and ended up breaking the 3D model)
+		mesh->vertices_out.resize(mesh->vertices.size());  
+		
+
+		concurrency::parallel_for(0u, (uint32_t)mesh->vertices.size(), [=, this](uint32_t index)
 		{
+			const Vertex& vert{ mesh->vertices[index] };
+
 			// World to camera (view space)
 			Vector4 newPosition = worldViewProjectionMatrix.TransformPoint({ vert.position, 1.0f });
 
@@ -730,14 +740,14 @@ void Renderer::VertexTransformationFunction(const std::vector<Mesh*>& meshes) co
 			const Vector3 vertPosition{ mesh->GetWorldMatrix().TransformPoint(vert.position) };
 
 			// Store the new position in the vertices out as Vertex out, because this one has a position 4 / vector4
-			Vertex_Out& outVert = mesh->vertices_out.emplace_back(Vertex_Out{});
+			Vertex_Out& outVert = mesh->vertices_out[index];
 			outVert.position = newPosition;
 			outVert.color = vert.color;
 			outVert.uv = vert.uv;
 			outVert.normal = newNormal;
 			outVert.tangent = newTangent;
 			outVert.viewDirection = { vertPosition - m_pCamera->GetOrigin() };
-		}
+		});
 	}
 }
 
