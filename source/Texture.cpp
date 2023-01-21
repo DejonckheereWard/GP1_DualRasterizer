@@ -28,19 +28,17 @@ Texture* Texture::LoadFromFile(ID3D11Device* pDevice, const std::string& path)
 	SDL_Surface* pSurface = IMG_Load(path.c_str());
 
 	assert(pSurface != nullptr);
-	
+
 	return new Texture(pDevice, pSurface);
 }
 
 ColorRGB Texture::Sample(const Vector2& uv, UVMode uvMode) const
 {
-
 	int x = 0;
 	int y = 0;
 
 	switch(uvMode)
 	{
-
 		case UVMode::Wrap:
 		{
 			float uvX = uv.x;
@@ -79,11 +77,9 @@ ColorRGB Texture::Sample(const Vector2& uv, UVMode uvMode) const
 				return ColorRGB{ 1.0f,0,1.0f };
 			break;
 
-
 		default:
 			assert(false && "Shouldn't ever hit this in the switch");
 			break;
-
 	}
 
 	// pixel color is in 0-255 ranges  0xFF FF FF FF -> ALPHA, BLUE, GREEN, RED
@@ -93,16 +89,14 @@ ColorRGB Texture::Sample(const Vector2& uv, UVMode uvMode) const
 	color.r = float((pixelColor >> 0) & 0xFF);  // 0 shift because RED is least significnat, 0xFF because we want to mask out the other colors (only take last byte)
 	color.g = float((pixelColor >> 8) & 0xFF);
 	color.b = float((pixelColor >> 16) & 0xFF);
-	//color.a = (pixelColor >> 24) & 0xFF; // No A component apparently 
-
 	color /= 255.0f;  // "Normalize" from 0->1
 
 	return color;
 }
 
 Texture::Texture(ID3D11Device* pDevice, SDL_Surface* pSurface):
-	m_pSurface{pSurface},
-	m_pSurfacePixels{ (uint32_t*)pSurface->pixels}
+	m_pSurface{ pSurface },
+	m_pSurfacePixels{ (uint32_t*)pSurface->pixels }
 {
 
 	// Assemble the resource and shader resource view for directx

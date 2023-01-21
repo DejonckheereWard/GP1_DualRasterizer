@@ -16,7 +16,6 @@ public:
 		Clamp,
 		Border
 	};
-
 	~Texture();
 
 	static Texture* LoadFromFile(ID3D11Device* pDevice, const std::string& path);
