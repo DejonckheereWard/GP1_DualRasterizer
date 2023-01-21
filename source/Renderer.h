@@ -124,6 +124,7 @@ private:
 
 	bool m_IsInitialized{ false };
 	void PrintConsoleCommands();
+	void PrintExtraInfo();
 
 	// Shared -----------------------------
 	Camera* m_pCamera;  // Unique pointer for camera (could make it shared if needed)
