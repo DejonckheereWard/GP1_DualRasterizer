@@ -74,6 +74,24 @@ Renderer::Renderer(SDL_Window* pWindow):
 	Utils::ParseOBJ("./Resources/fireFX.obj", vertices, indices);
 	pMesh = m_MeshPtrs.emplace_back(new Mesh{ m_pDevice, m_pFireMaterial, vertices, indices, {0, 0, 50.0f} });
 
+
+	// Set the scene settings for the all supported meshes
+	for(Mesh* pMesh : m_MeshPtrs)
+	{		
+		Effect* pEffect{ pMesh->GetEffect() };
+		
+		// Try casting to EffectVehicle
+		EffectVehicle* pEffectVehicle{ dynamic_cast<EffectVehicle*>(pEffect) };
+		if(pEffectVehicle)
+		{
+			pEffectVehicle->SetLightDirection(m_SceneSettings.Light.Direction);
+			pEffectVehicle->SetLightIntensity(m_SceneSettings.Light.Intensity);
+			pEffectVehicle->SetLightColor(m_SceneSettings.Light.Color);
+			pEffectVehicle->SetAmbientlight(m_SceneSettings.AmbientLight);
+			pEffectVehicle->SetShininess(m_SceneSettings.Shininess);
+		}
+	}
+
 }
 
 Renderer::~Renderer()
@@ -729,9 +747,9 @@ ColorRGB Renderer::PixelShader(const Vertex_Out& vert) const
 	const ColorRGB lightColor{ m_SceneSettings.Light.Color };
 	const float lightIntensity{ m_SceneSettings.Light.Intensity };
 	const ColorRGB ambientColor{ m_SceneSettings.AmbientLight };
+	const float specularGlossiness{ m_SceneSettings.Shininess };  // Shininess
 
 	const ColorRGB lightRadiance{ lightColor * lightIntensity };
-	const float specularGlossiness{ 25.0f };  // Shininess
 
 	const ColorRGB diffuseColorSample{ m_pVehicleDiffuse->Sample(vert.uv) };
 	const ColorRGB specularColorSample{ m_pVehicleSpecular->Sample(vert.uv) };

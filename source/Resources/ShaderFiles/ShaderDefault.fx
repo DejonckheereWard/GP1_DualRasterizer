@@ -8,21 +8,18 @@ Texture2D gNormalMap : NormalMap;
 Texture2D gSpecularMap : SpecularMap;
 Texture2D gGlossinessMap : GlossinessMap;
 
-float3 gLightDirection : LightDirection = float3(0.577f, -0.577f, 0.577f);
-float3 gLightColor : LightColor = float3(1.0f, 1.0f, 1.0f);
-float gLightIntensity : LightIntensity = 7.0f;
-float gShininess : Shininess = 25.0f;
-float gAmbientColor : Shininess = float3(0.025f, 0.025f, 0.025f);
+float3 gLightDirection : LightDirection;
+float3 gLightColor : LightColor;
+float gLightIntensity : LightIntensity;
+float gShininess : Shininess;
+float3 gAmbientColor : AmbientColor;
 
 float4x4 gWorldMatrix : WORLD;
 float4x4 gViewInverse : VIEWINVERSE;
 
 SamplerState gSampler; // Used to sample textures
 
-
 const float PI = 3.1415926535897932384626433832795f;
-
-
 
 RasterizerState gRasterizerState
 {

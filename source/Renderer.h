@@ -22,6 +22,7 @@ struct SceneSettings
 {
 	DirectionalLight Light{};
 	ColorRGB AmbientLight{ 0.025f, 0.025f , 0.025f};
+	float Shininess{ 25.0f };
 };
 
 
