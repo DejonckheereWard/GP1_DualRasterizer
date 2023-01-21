@@ -223,6 +223,7 @@ void Renderer::RenderSoftware() const
 		if(pMesh->GetTopology() == PrimitiveTopology::TriangleStrip)
 			increment = 1;
 
+
 		for(int indiceIdx = 0; indiceIdx < pMesh->indices.size() - 2; indiceIdx += increment)
 		{
 			// Get the vertices using the indice numbers
@@ -306,6 +307,9 @@ void Renderer::RenderSoftware() const
 
 			bbMax.x = Clamp(bbMax.x, 0.0f, float(m_Width));
 			bbMax.y = Clamp(bbMax.y, 0.0f, float(m_Height));
+
+
+
 
 			for(int py = int(bbMin.y); py < int(ceil(bbMax.y)); ++py)
 			{
@@ -704,23 +708,26 @@ void Renderer::PrintConsoleCommands()
 
 void Renderer::VertexTransformationFunction(const std::vector<Mesh*>& meshes) const
 {
-	for(Mesh* mesh : meshes)
+	// This upper multithreading loop might make more impact if there were more meshes, but since  i dont render the fire
+	// Theres only really one mesh to render anyway, making this kinda redundant in this scenario. but im leaving this in either way.
+	concurrency::parallel_for(0u, (uint32_t)meshes.size(), [=, this](uint32_t index)
 	{
+		Mesh* pMesh = meshes[index];
 		// Calculate WorldViewProjectionmatrix for every mesh	
-		Matrix meshWorldMatrix{ mesh->GetWorldMatrix() };
+		Matrix meshWorldMatrix{ pMesh->GetWorldMatrix() };
 		Matrix worldViewProjectionMatrix = meshWorldMatrix * (m_pCamera->GetViewMatrix() * m_pCamera->GetProjectionMatrix());
 
-		mesh->vertices_out.clear();
-		mesh->vertices_out.reserve(mesh->vertices.size());
+		pMesh->vertices_out.clear();
+		pMesh->vertices_out.reserve(pMesh->vertices.size());
 		
 		// For the parallelization, i wanted existing slots to fill in the out vertices, hen
 		// Using pushback or emplace back made the order of vertices all messed up (and ended up breaking the 3D model)
-		mesh->vertices_out.resize(mesh->vertices.size());  
+		pMesh->vertices_out.resize(pMesh->vertices.size());  
 		
-
-		concurrency::parallel_for(0u, (uint32_t)mesh->vertices.size(), [=, this](uint32_t index)
+		// Multithread the vertex loop
+		concurrency::parallel_for(0u, (uint32_t)pMesh->vertices.size(), [=, this](uint32_t index)
 		{
-			const Vertex& vert{ mesh->vertices[index] };
+			const Vertex& vert{ pMesh->vertices[index] };
 
 			// World to camera (view space)
 			Vector4 newPosition = worldViewProjectionMatrix.TransformPoint({ vert.position, 1.0f });
@@ -737,10 +744,10 @@ void Renderer::VertexTransformationFunction(const std::vector<Mesh*>& meshes) co
 			const Vector3 newTangent = meshWorldMatrix.TransformVector(vert.tangent).Normalized();
 
 			// Calculate vert world position
-			const Vector3 vertPosition{ mesh->GetWorldMatrix().TransformPoint(vert.position) };
+			const Vector3 vertPosition{ pMesh->GetWorldMatrix().TransformPoint(vert.position) };
 
 			// Store the new position in the vertices out as Vertex out, because this one has a position 4 / vector4
-			Vertex_Out& outVert = mesh->vertices_out[index];
+			Vertex_Out& outVert = pMesh->vertices_out[index];
 			outVert.position = newPosition;
 			outVert.color = vert.color;
 			outVert.uv = vert.uv;
@@ -748,7 +755,7 @@ void Renderer::VertexTransformationFunction(const std::vector<Mesh*>& meshes) co
 			outVert.tangent = newTangent;
 			outVert.viewDirection = { vertPosition - m_pCamera->GetOrigin() };
 		});
-	}
+	});
 }
 
 ColorRGB Renderer::PixelShader(const Vertex_Out& vert) const
