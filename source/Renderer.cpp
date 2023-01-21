@@ -133,16 +133,19 @@ void Renderer::Update(const Timer* pTimer)
 
 void Renderer::Render() const
 {
+	ColorRGB clearColor{ .1f, .1f, .1f };  // Uniform clear color -> Dark Gray
 
 	if(m_RenderSettings.RenderMethod == RenderSettings::RenderMethods::Hardware)
 	{
-
 		if(!m_IsInitialized)
 			return;
 
+		// Clear uniform clear color according to setting
+		if(m_RenderSettings.UniformClearColor == false)
+			clearColor = ColorRGB{ .39f, .59f, .93f }; // Hardware clear color -> Cornflower blue;
+
 		// DirectX
 		//1. CLEAR RTV & DSV
-		const ColorRGB clearColor = ColorRGB{ 0.39f, 0.59f, 0.93f };
 		m_pDeviceContext->ClearRenderTargetView(m_pRenderTargetView, &clearColor.r);
 		m_pDeviceContext->ClearDepthStencilView(m_pDepthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.f, 0);
 
@@ -170,7 +173,7 @@ void Renderer::ToggleRenderMethod()
 {
 	if(m_RenderSettings.RenderMethod == RenderSettings::RenderMethods::Hardware)
 	{
-		
+
 		m_RenderSettings.RenderMethod = RenderSettings::RenderMethods::Software;
 
 	}
@@ -348,7 +351,7 @@ void Renderer::PrintConsoleCommands()
 	const TextColor sharedTextColor{ TextColor::Yellow };
 	const TextColor hardwareTextColor{ TextColor::Green };
 	const TextColor softwareTextColor{ TextColor::LightMagenta };
-	
+
 	PrintColor("[Key Bindings - SHARED]", sharedTextColor);
 	PrintColor("    [F1] Toggle Rasterizer Mode (Hardware/Software)", sharedTextColor);
 	PrintColor("    [F2] Toggle Vehicle Rotation (ON/OFF)", sharedTextColor);
@@ -356,7 +359,7 @@ void Renderer::PrintConsoleCommands()
 	PrintColor("    [F10] Toggle Uniform ClearColor (ON/OFF)", sharedTextColor);
 	PrintColor("    [F11] Toggle Print FPS (ON/OFF)", sharedTextColor);
 	std::cout << std::endl;
-	
+
 	PrintColor("[Key Bindings - HARDWARE]", hardwareTextColor);
 	PrintColor("    [F3] Toggle FireFX (ON/OFF)", hardwareTextColor);
 	PrintColor("    [F4] Cycle Sampler State (POINT/LINEAR/ANISOTROPIC)", hardwareTextColor);
