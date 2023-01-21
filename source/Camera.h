@@ -39,20 +39,24 @@ public:
 
 private:
 	// Camera Settings
-	
+
 	Vector3 m_Origin;
 	const float m_FovAngle;
 	const float m_FovRatio;
 	float m_AspectRatio;
-	
+
 	// Camera frustum planes
 	const float m_NearPlane;
 	const float m_FarPlane;
 
 	// Camera control settings
-	const float m_MovementSpeed{ 15.0f };
-	const float m_RotationSpeed{ 30.0f };
-	const float m_KeyboardRotationSpeed{ 120.0f };
+	const float m_BaseMovementSpeed{ 20.0f };
+	const float m_BoostMovementSpeed{ 40.0f };
+	float m_CurrentMovementSpeed{ m_BaseMovementSpeed };
+
+	const float m_RotationSpeed{ 0.1f };
+	const float m_KeyboardRotationSpeed{ 80.0f };
+	const float m_KeyboardMovementSpeedMultiplier{1.2f};  // Speed increase compared to mouse
 
 	// Current camera orientation  {pitch, yaw, roll};
 	Vector3 m_CameraOrientation{ 0.f, 0.f, 0.f };

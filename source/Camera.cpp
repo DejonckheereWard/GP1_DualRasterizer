@@ -15,52 +15,62 @@ void Camera::Update(const Timer* pTimer)
 	const uint32_t mouseState{ SDL_GetRelativeMouseState(&mouseX, &mouseY) };
 
 	// Keyboard movement of the camera
-	if(pKeyboardState[SDL_SCANCODE_W])
+	if(pKeyboardState[SDL_SCANCODE_LSHIFT])
 	{
-		m_Origin += m_Forward * m_MovementSpeed * deltaTime;
+		m_CurrentMovementSpeed = m_BoostMovementSpeed;
+	}
+	else
+	{
+		m_CurrentMovementSpeed = m_BaseMovementSpeed;
+	}
+	if(pKeyboardState[SDL_SCANCODE_W] || pKeyboardState[SDL_SCANCODE_UP])
+	{
+		m_Origin += m_Forward * m_CurrentMovementSpeed * m_KeyboardMovementSpeedMultiplier * deltaTime;
 		hasMoved = true;
 	}
-	if(pKeyboardState[SDL_SCANCODE_S])
+	if(pKeyboardState[SDL_SCANCODE_S] || pKeyboardState[SDL_SCANCODE_DOWN])
 	{
-		m_Origin -= m_Forward * m_MovementSpeed * deltaTime;
+		m_Origin -= m_Forward * m_CurrentMovementSpeed * m_KeyboardMovementSpeedMultiplier * deltaTime;
 		hasMoved = true;
 	}
-	if(pKeyboardState[SDL_SCANCODE_D])
+	if(pKeyboardState[SDL_SCANCODE_D] || pKeyboardState[SDL_SCANCODE_RIGHT])
 	{
-		m_Origin += m_Right * m_MovementSpeed * deltaTime;
+		m_Origin += m_Right * m_CurrentMovementSpeed * m_KeyboardMovementSpeedMultiplier * deltaTime;
 		hasMoved = true;
 	}
-	if(pKeyboardState[SDL_SCANCODE_A])
+	if(pKeyboardState[SDL_SCANCODE_A] || pKeyboardState[SDL_SCANCODE_LEFT])
 	{
-		m_Origin -= m_Right * m_MovementSpeed * deltaTime;
+		m_Origin -= m_Right * m_CurrentMovementSpeed * m_KeyboardMovementSpeedMultiplier * deltaTime;
 		hasMoved = true;
 	}
 	if(pKeyboardState[SDL_SCANCODE_SPACE])
 	{
-		m_Origin += m_Up * m_MovementSpeed * deltaTime;
+		m_Origin += Vector3::UnitY * m_CurrentMovementSpeed * m_KeyboardMovementSpeedMultiplier * deltaTime;
 		hasMoved = true;
 	}
-	if(pKeyboardState[SDL_SCANCODE_LSHIFT])
+
+	if(pKeyboardState[SDL_SCANCODE_LCTRL])
 	{
-		m_Origin -= m_Up * m_MovementSpeed * deltaTime;
+		m_Origin -= Vector3::UnitY * m_CurrentMovementSpeed * m_KeyboardMovementSpeedMultiplier * deltaTime;
 		hasMoved = true;
 	}
-	if(pKeyboardState[SDL_SCANCODE_UP])
+
+	if(pKeyboardState[SDL_SCANCODE_I])
 	{
 		m_CameraOrientation.x += m_KeyboardRotationSpeed * deltaTime;
 		hasMoved = true;
 	}
-	if(pKeyboardState[SDL_SCANCODE_DOWN])
+	if(pKeyboardState[SDL_SCANCODE_K])
 	{
 		m_CameraOrientation.x -= m_KeyboardRotationSpeed * deltaTime;
 		hasMoved = true;
 	}
-	if(pKeyboardState[SDL_SCANCODE_LEFT])
+	if(pKeyboardState[SDL_SCANCODE_J])
 	{
 		m_CameraOrientation.y -= m_KeyboardRotationSpeed * deltaTime;
 		hasMoved = true;
 	}
-	if(pKeyboardState[SDL_SCANCODE_RIGHT])
+	if(pKeyboardState[SDL_SCANCODE_L])
 	{
 		m_CameraOrientation.y += m_KeyboardRotationSpeed * deltaTime;
 		hasMoved = true;
@@ -70,15 +80,15 @@ void Camera::Update(const Timer* pTimer)
 	if((mouseState & SDL_BUTTON(SDL_BUTTON_LEFT)) && mouseState & SDL_BUTTON(SDL_BUTTON_RIGHT))
 	{
 		// mouseX yaw left & right, mouse Y moves forwards & backwards
-		const float upwards = -mouseY * m_MovementSpeed * deltaTime;
+		const float upwards = -mouseY * 0.1f;
 		m_Origin += m_Up * upwards;
 		hasMoved = true;
 	}
 	else if(mouseState & SDL_BUTTON(SDL_BUTTON_LEFT))
 	{
 		// mouseX yaw left & right, mouse Y moves forwards & backwards
-		const float forwards = -mouseY * deltaTime;
-		const float yaw = mouseX * deltaTime;
+		const float forwards = -mouseY * m_RotationSpeed;
+		const float yaw = mouseX * m_RotationSpeed;
 
 		m_Origin += m_Forward * forwards;
 		m_CameraOrientation.y += yaw;
@@ -87,8 +97,8 @@ void Camera::Update(const Timer* pTimer)
 	else if(mouseState & SDL_BUTTON(SDL_BUTTON_RIGHT))
 	{
 		// Look around the current origin
-		const float pitch = -mouseY * m_RotationSpeed * deltaTime;
-		const float yaw = mouseX * m_RotationSpeed * deltaTime;
+		const float pitch = -mouseY * m_RotationSpeed;
+		const float yaw = mouseX * m_RotationSpeed;
 
 		m_CameraOrientation.x += pitch;
 		m_CameraOrientation.y += yaw;
