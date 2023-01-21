@@ -26,27 +26,27 @@ struct SceneSettings
 
 struct RenderSettings
 {
-	enum class RenderMethod
+	enum class RenderMethods
 	{
 		Hardware,
 		Software
 	};
 
-	enum class CullMode
+	enum class CullModes
 	{
 		BackFace,
 		FrontFace,
 		None,
 	};
 
-	enum class SampleState
+	enum class SampleStates
 	{
 		Point,
 		Linear,
 		Anisotropic
 	};
 
-	enum class ShadingMode
+	enum class ShadingModes
 	{
 		Combined,
 		ObservedArea,
@@ -55,18 +55,18 @@ struct RenderSettings
 	};
 
 	// Shared
-	RenderMethod Method = RenderMethod::Hardware;
-	bool RotateMeshes = false;
-	CullMode CullMode = CullMode::BackFace;
+	RenderMethods RenderMethod = RenderMethods::Hardware;
+	bool RotateMeshes = true;
+	CullModes CullMode = CullModes::BackFace;
 	bool UniformClearColor = false;
-	bool PrintFPW = false;
+	bool PrintFPS = false;
 
 	// Hardware only
 	bool ShowFireFX = true;
-	SampleState SampleState = SampleState::Point;
+	SampleStates SampleState = SampleStates::Point;
 	
 	// Software only
-	ShadingMode ShadingMode = ShadingMode::Combined;
+	ShadingModes ShadingMode = ShadingModes::Combined;
 	bool UseNormalMap = false;
 	bool ShowDepthBuffer = false;
 	bool ShowBoundingBox = false;
@@ -82,9 +82,6 @@ public:
 		Linear,
 		Anisotropic
 	};
-
-
-
 
 	Renderer(SDL_Window* pWindow);
 
@@ -103,7 +100,7 @@ public:
 	void ToggleRotation();
 	void CycleCullMode();
 	void ToggleUniformClearColor();
-	void TogglePrintFPW();
+	void TogglePrintFPS();
 	
 	// Hardware
 	void ToggleFireFX();
@@ -115,10 +112,6 @@ public:
 	void ToggleDepthBuffer();
 	void ToggleBoundingBox();
 
-	
-
-
-
 private:
 	SDL_Window* m_pWindow{};
 
@@ -128,6 +121,7 @@ private:
 
 
 	bool m_IsInitialized{ false };
+	void PrintConsoleCommands();
 
 	// Shared -----------------------------
 	Camera* m_pCamera;  // Unique pointer for camera (could make it shared if needed)

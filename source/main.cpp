@@ -75,7 +75,7 @@ int main(int argc, char* args[])
 							break;
 
 						case SDL_SCANCODE_F11:
-							pRenderer->TogglePrintFPW();
+							pRenderer->TogglePrintFPS();
 							break;
 
 							// Hardware rasterizer only ----------------------------------------

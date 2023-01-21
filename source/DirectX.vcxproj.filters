@@ -105,5 +105,8 @@
     <ClCompile Include="Texture.cpp">
       <Filter>Shared</Filter>
     </ClCompile>
+    <ClCompile Include="Utils.cpp">
+      <Filter>Misc</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

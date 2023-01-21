@@ -3,10 +3,21 @@
 #include "Math.h"
 #include "Mesh.h"
 
+
+
 namespace Utils
 {
+
 	enum class TextColor
 	{
+		// Numbers from 0 - 15, resulting in binary
+		// 0 0 0 0
+		// to    -> in order (intensity, red, green, blue)
+		// 1 1 1 1
+		// For example, Red gets value 4, because a binary 4 is 0100, which means red is on, the rest is off
+		// You can combine flags to get a combined color.
+		// Intensity mixes more "white" into the mix (making colors lighter)
+
 		Black,
 		Blue,
 		Green,
@@ -22,7 +33,7 @@ namespace Utils
 		LightRed,
 		LightMagenta,
 		Yellow,
-		White
+		White,		
 	};
 
 	//Just parses vertices and indices
@@ -177,12 +188,9 @@ namespace Utils
 
 		return true;
 	}
-#pragma warning(pop)
+#pragma warning(pop)	
 
-	void PrintColor(const std::string& text, TextColor textColor, const std::string& end = "\n")
-	{
-		std::cout << text << end;
-	}
+	void PrintColor(const std::string& text, TextColor textColor, const std::string& end = "\n");
 
 	template<typename T>
 	concept Releasable = requires(T ev)

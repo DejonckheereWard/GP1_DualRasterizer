@@ -45,23 +45,27 @@ public:
 
 	void Translate(const Vector3& translation)
 	{
-		m_TranslationTransform = Matrix::CreateTranslation(translation);
+		// *= For additive translation
+		m_TranslationTransform *= Matrix::CreateTranslation(translation);
 	}
 
 
 	void RotateX(float pitch)
 	{
-		m_RotationTransform = Matrix::CreateRotationX(pitch);
+		// *= For additive rotation
+		m_RotationTransform *= Matrix::CreateRotationX(pitch);
 	}
 
 	void RotateY(float yaw)
 	{
-		m_RotationTransform = Matrix::CreateRotationY(yaw);
+		// *= For additive rotation
+		m_RotationTransform *= Matrix::CreateRotationY(yaw);
 	}
 
 	void RotateZ(float roll)
 	{
-		m_RotationTransform = Matrix::CreateRotationZ(roll);
+		// *= For additive rotation
+		m_RotationTransform *= Matrix::CreateRotationZ(roll);
 	}
 
 	void Scale(float uniformScale)
@@ -71,7 +75,8 @@ public:
 
 	void Scale(const Vector3& scale)
 	{
-		m_ScaleTransform = Matrix::CreateScale(scale);
+		// *= For multiplicative scaling
+		m_ScaleTransform *= Matrix::CreateScale(scale);
 	}
 
 
