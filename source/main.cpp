@@ -64,6 +64,13 @@ int main(int argc, char* args[])
 		{
 			switch(e.type)
 			{
+				case SDL_MOUSEBUTTONDOWN:
+					SDL_SetRelativeMouseMode(SDL_TRUE);
+					break;
+				case SDL_MOUSEBUTTONUP:
+					SDL_SetRelativeMouseMode(SDL_FALSE);
+					break;
+
 				case SDL_QUIT:
 					isLooping = false;
 					break;
