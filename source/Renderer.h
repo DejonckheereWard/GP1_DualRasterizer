@@ -1,4 +1,5 @@
 #pragma once
+#include "Effect.h"
 
 struct SDL_Window;
 struct SDL_Surface;
@@ -12,15 +13,15 @@ using namespace dae;
 // Extra structs for the scene
 struct DirectionalLight
 {
-	Vector3 Direction;
-	float Intensity;
-	ColorRGB Color;
+	Vector3 Direction{ .577f, -.577f, .577f};
+	float Intensity{ 7.f };
+	ColorRGB Color{ 1.0f, 1.0f, 1.0f };
 };
 
 struct SceneSettings
 {
-	DirectionalLight Light;
-	ColorRGB AmbientLight;
+	DirectionalLight Light{};
+	ColorRGB AmbientLight{ 0.025f, 0.025f , 0.025f};
 };
 
 
@@ -59,15 +60,14 @@ struct RenderSettings
 	bool RotateMeshes = true;
 	CullModes CullMode = CullModes::BackFace;
 	bool UniformClearColor = false;
-	bool PrintFPS = false;
 
 	// Hardware only
 	bool ShowFireFX = true;
-	SampleStates SampleState = SampleStates::Point;
+	Effect::SamplerFilter SampleState = Effect::SamplerFilter::Point;
 	
 	// Software only
 	ShadingModes ShadingMode = ShadingModes::Combined;
-	bool UseNormalMap = false;
+	bool UseNormalMap = true;
 	bool ShowDepthBuffer = false;
 	bool ShowBoundingBox = false;
 	
@@ -94,17 +94,18 @@ public:
 	
 	void Update(const Timer* pTimer);
 	void Render() const;
+	void RenderSoftware() const;
+	void RenderHardware() const;
 
 	// Shared
 	void ToggleRenderMethod();
 	void ToggleRotation();
 	void CycleCullMode();
 	void ToggleUniformClearColor();
-	void TogglePrintFPS();
 	
 	// Hardware
 	void ToggleFireFX();
-	void ToggleSampleState();
+	void ToggleSampleFilter();
 
 	// Software
 	void CycleShadingMode();
@@ -128,7 +129,9 @@ private:
 	std::vector<Mesh*> m_MeshPtrs;
 	
 	RenderSettings m_RenderSettings{};
-	SceneSettings m_Scene;
+	SceneSettings m_SceneSettings;
+	const ColorRGB m_UniformClearColor{ 0.1f, 0.1f, 0.1f };  // -> Dark Gray
+
 
 	// Textures
 	Texture* m_pVehicleDiffuse{};
@@ -137,6 +140,14 @@ private:
 	Texture* m_pVehicleGloss{};
 	Texture* m_pFireDiffuse{};
 
+
+	// Software ----------------------------
+	void VertexTransformationFunction(const std::vector<Mesh*>& meshes) const;
+	ColorRGB PixelShader(const Vertex_Out& vert) const;  // Software pixel shader
+	SDL_Surface* m_pFrontBuffer{ nullptr };
+	SDL_Surface* m_pBackBuffer{ nullptr };
+	uint32_t* m_pBackBufferPixels{};
+	float* m_pDepthBufferPixels{};
 
 	// DIRECTX -----------------------------
 	HRESULT InitializeDirectX();

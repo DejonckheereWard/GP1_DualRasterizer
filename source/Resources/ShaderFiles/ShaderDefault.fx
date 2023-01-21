@@ -7,11 +7,11 @@ Texture2D gDiffuseMap : DiffuseMap;
 Texture2D gNormalMap : NormalMap;
 Texture2D gSpecularMap : SpecularMap;
 Texture2D gGlossinessMap : GlossinessMap;
+
 float3 gLightDirection : LightDirection = float3(0.577f, -0.577f, 0.577f);
 float3 gLightColor : LightColor = float3(1.0f, 1.0f, 1.0f);
 float gLightIntensity : LightIntensity = 7.0f;
-float gShininess : Shininess = 250.0f;
-
+float gShininess : Shininess = 25.0f;
 float gAmbientColor : Shininess = float3(0.025f, 0.025f, 0.025f);
 
 float4x4 gWorldMatrix : WORLD;

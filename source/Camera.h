@@ -35,6 +35,8 @@ public:
 	Matrix GetInverseViewMatrix() const { return Matrix::Inverse(m_ViewMatrix); };
 	Matrix GetProjectionMatrix() const { return m_ProjectionMatrix; };
 
+	Vector3 GetOrigin() { return m_Origin; };
+
 private:
 	// Camera Settings
 	

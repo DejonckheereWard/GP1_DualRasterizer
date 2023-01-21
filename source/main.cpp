@@ -9,10 +9,22 @@
 
 using namespace dae;
 
+bool gPrintFPS{ false };
+
 void ShutDown(SDL_Window* pWindow)
 {
 	SDL_DestroyWindow(pWindow);
 	SDL_Quit();
+}
+
+void TogglePrintFPS()
+{
+	gPrintFPS = !gPrintFPS;
+
+	if(gPrintFPS)
+		Utils::PrintColor("**(SHARED) Print FPS ON", Utils::TextColor::Green);
+	else
+		Utils::PrintColor("**(SHARED) Print FPS OFF", Utils::TextColor::Green);
 }
 
 int main(int argc, char* args[])
@@ -75,7 +87,7 @@ int main(int argc, char* args[])
 							break;
 
 						case SDL_SCANCODE_F11:
-							pRenderer->TogglePrintFPS();
+							TogglePrintFPS();
 							break;
 
 							// Hardware rasterizer only ----------------------------------------
@@ -83,7 +95,7 @@ int main(int argc, char* args[])
 							pRenderer->ToggleFireFX();
 							break;
 						case SDL_SCANCODE_F4:
-							pRenderer->ToggleSampleState();
+							pRenderer->ToggleSampleFilter();
 							break;
 
 							// Software rasterizer only ----------------------------------------
@@ -118,7 +130,8 @@ int main(int argc, char* args[])
 		if(printTimer >= 1.f)
 		{
 			printTimer = 0.f;
-			std::cout << "dFPS: " << pTimer->GetdFPS() << std::endl;
+			if(gPrintFPS)
+				std::cout << "dFPS: " << pTimer->GetdFPS() << std::endl;
 		}
 	}
 	pTimer->Stop();

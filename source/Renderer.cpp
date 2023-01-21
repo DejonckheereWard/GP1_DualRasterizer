@@ -14,7 +14,7 @@ using Utils::TextColor;
 Renderer::Renderer(SDL_Window* pWindow):
 	m_pWindow(pWindow),
 	m_pCamera{ nullptr },
-	m_Scene{}
+	m_SceneSettings{}
 {
 	PrintConsoleCommands();
 
@@ -23,17 +23,22 @@ Renderer::Renderer(SDL_Window* pWindow):
 
 	// Not in the init list, because we need the width and height from previous function
 	m_pCamera = new Camera({ 0,0,0 }, 45.0f, 1.0f, 100.0f, m_Width / (float)m_Height);
-	m_Scene.AmbientLight = { 0.025f, 0.025f, 0.025f };
-	m_Scene.Light = DirectionalLight({ .577f, -.577f, .577f }, 7.f);  // Direction + Intensity
 
 
+	// Init Software Rasterizer ----------------------------
+	//Create Buffers
+	m_pFrontBuffer = SDL_GetWindowSurface(pWindow);
+	m_pBackBuffer = SDL_CreateRGBSurface(0, m_Width, m_Height, 32, 0, 0, 0, 0);
+	m_pBackBufferPixels = (uint32_t*)m_pBackBuffer->pixels;
+	m_pDepthBufferPixels = new float[m_Width * m_Height];
 
+	// Init Hardware Rasterizer ----------------------------
 	//Initialize DirectX pipeline
 	const HRESULT result = InitializeDirectX();
 	if(result == S_OK)
 	{
 		m_IsInitialized = true;
-		std::cout << "DirectX is initialized and ready!\n";
+		//std::cout << "DirectX is initialized and ready!\n";
 	}
 	else
 	{
@@ -75,6 +80,12 @@ Renderer::~Renderer()
 {
 	using namespace Utils;
 
+	// Deleting software stuff
+	SDL_FreeSurface(m_pBackBuffer);
+	SDL_FreeSurface(m_pFrontBuffer);
+	delete[] m_pDepthBufferPixels;
+
+
 	// Deleting Direct X stuff
 	SafeRelease(m_pRenderTargetView);
 	SafeRelease(m_pRenderTargetBuffer);
@@ -97,6 +108,7 @@ Renderer::~Renderer()
 		delete pMesh;
 
 	m_MeshPtrs.clear();
+
 
 	// Delete all the textures and materials
 	delete m_pVehicleMaterial;
@@ -133,57 +145,353 @@ void Renderer::Update(const Timer* pTimer)
 
 void Renderer::Render() const
 {
-	ColorRGB clearColor{ .1f, .1f, .1f };  // Uniform clear color -> Dark Gray
 
 	if(m_RenderSettings.RenderMethod == RenderSettings::RenderMethods::Hardware)
 	{
-		if(!m_IsInitialized)
-			return;
+		m_MeshPtrs.at(1)->SetVisibility(m_RenderSettings.ShowFireFX);
 
-		// Clear uniform clear color according to setting
-		if(m_RenderSettings.UniformClearColor == false)
-			clearColor = ColorRGB{ .39f, .59f, .93f }; // Hardware clear color -> Cornflower blue;
-
-		// DirectX
-		//1. CLEAR RTV & DSV
-		m_pDeviceContext->ClearRenderTargetView(m_pRenderTargetView, &clearColor.r);
-		m_pDeviceContext->ClearDepthStencilView(m_pDepthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.f, 0);
-
-		// 2. SET PIPELINE + INVOKE DRAWCALLS (= RENDER)
-		for(Mesh* pMesh : m_MeshPtrs)
-		{
-			Matrix worldViewProjectionMatrix{ pMesh->GetWorldMatrix() * m_pCamera->GetViewMatrix() * m_pCamera->GetProjectionMatrix() };
-			pMesh->Render(m_pDeviceContext, worldViewProjectionMatrix, m_pCamera->GetInverseViewMatrix());
-		}
-
-		// SWAP THE BACKBUFFER / PRESENT
-		m_pSwapChain->Present(0, 0);
+		RenderHardware();
 	}
 	else if(m_RenderSettings.RenderMethod == RenderSettings::RenderMethods::Software)
 	{
-		return;
+		m_MeshPtrs.at(1)->SetVisibility(false);
+
+		//@START
+		//Lock BackBuffer
+		SDL_LockSurface(m_pBackBuffer);
+
+		// Execute Software Rasterizer
+		RenderSoftware();
+
+		//@END
+		//Update SDL Surface
+		SDL_UnlockSurface(m_pBackBuffer);
+		SDL_BlitSurface(m_pBackBuffer, 0, m_pFrontBuffer, 0);
+		SDL_UpdateWindowSurface(m_pWindow);
 	}
-	else
+}
+
+void Renderer::RenderSoftware() const
+{
+	ColorRGB clearColor{ m_UniformClearColor };
+
+	// Clear uniform clear color according to setting
+	if(m_RenderSettings.UniformClearColor == false)
+		clearColor = ColorRGB{ .39f, .39f, .39f }; // Software clear color -> Light gray;
+
+	// Software raytracer takes the color in range 0-255 and not as floats
+	clearColor *= 255.0f;
+
+	// Clear back buffer
+	uint32_t hexColor = 0xFF000000 | (uint32_t)clearColor.b << 16 | (uint32_t)clearColor.g << 8 | (uint32_t)clearColor.r;
+	SDL_FillRect(m_pBackBuffer, NULL, hexColor);
+
+	// Clear depth buffer
+	std::fill_n(m_pDepthBufferPixels, m_Width * m_Height, FLT_MAX);
+	
+	VertexTransformationFunction(m_MeshPtrs);
+
+	for(const Mesh* pMesh : m_MeshPtrs)
 	{
-		assert(false && "No valid rendermethod");
+		if(!pMesh->Visible())
+			continue;
+
+		//VertexTransformationFunction(mesh.vertices, mesh_screen.vertices);
+
+		// If triangle strip, move only one position per itteration & inverse the direction on every odd loop
+		int increment = 3;
+		if(pMesh->GetTopology() == PrimitiveTopology::TriangleStrip)
+			increment = 1;
+
+		for(int indiceIdx = 0; indiceIdx < pMesh->indices.size() - 2; indiceIdx += increment)
+		{
+			// Get the vertices using the indice numbers
+			uint32_t indiceA{ pMesh->indices[indiceIdx] };
+			uint32_t indiceB{ pMesh->indices[indiceIdx + 1] };
+			uint32_t indiceC{ pMesh->indices[indiceIdx + 2] };
+
+			Vertex_Out A{ pMesh->vertices_out[indiceA] };
+			Vertex_Out B{ pMesh->vertices_out[indiceB] };
+			Vertex_Out C{ pMesh->vertices_out[indiceC] };
+
+			// If triangle strip, move only one position per itteration & inverse the direction on every odd loop
+
+			if(pMesh->GetTopology() == PrimitiveTopology::TriangleStrip)
+			{
+				// Check if least significant bit is 1 (odd number)
+				if((indiceIdx & 1) == 1)
+					std::swap(B, C);
+
+				// Check if any vertices of the triangle are the same (and thus the triangle has 0 area / should not be rendered)
+				if(indiceA == indiceB)
+					continue;
+
+				if(indiceB == indiceC)
+					continue;
+
+				if(indiceC == indiceA)
+					continue;
+
+			}
+
+
+			// Do frustum culling
+			if(A.position.z < 0.0f || A.position.z > 1.0f)
+				continue;
+			if(B.position.z < 0.0f || B.position.z > 1.0f)
+				continue;
+			if(C.position.z < 0.0f || C.position.z > 1.0f)
+				continue;
+
+			if(A.position.x < -1.0f || A.position.x > 1.0f)
+				//continue;
+				if(B.position.x < -1.0f || B.position.x > 1.0f)
+					//continue;
+					if(C.position.x < -1.0f || C.position.x > 1.0f)
+						continue;
+
+			if(A.position.y < -1.0f || A.position.y > 1.0f)
+				//continue;
+				if(B.position.y < -1.0f || B.position.y > 1.0f)
+					//continue;
+					if(C.position.y < -1.0f || C.position.y > 1.0f)
+						continue;
+
+
+			// Convert from NDC to ScreenSpace
+			A.position.x = (A.position.x + 1) / 2.0f * m_Width; // Screen X
+			A.position.y = (1 - A.position.y) / 2.0f * m_Height; // Screen Y,
+			B.position.x = (B.position.x + 1) / 2.0f * m_Width; // Screen X
+			B.position.y = (1 - B.position.y) / 2.0f * m_Height; // Screen Y,
+			C.position.x = (C.position.x + 1) / 2.0f * m_Width; // Screen X
+			C.position.y = (1 - C.position.y) / 2.0f * m_Height; // Screen Y,
+
+			// Define the edges of the screen triangle
+			const Vector2 edgeA{ A.position.GetXY(), B.position.GetXY() };
+			const Vector2 edgeB{ B.position.GetXY(), C.position.GetXY() };
+			const Vector2 edgeC{ C.position.GetXY(), A.position.GetXY() };
+
+
+			// Get the bounding box of the triangle (min max)
+			Vector2 bbMin;
+			bbMin.x = std::min(A.position.x, std::min(B.position.x, C.position.x));
+			bbMin.y = std::min(A.position.y, std::min(B.position.y, C.position.y));
+
+			Vector2 bbMax;
+			bbMax.x = std::max(A.position.x, std::max(B.position.x, C.position.x));
+			bbMax.y = std::max(A.position.y, std::max(B.position.y, C.position.y));
+
+			bbMin.x = Clamp(bbMin.x, 0.0f, float(m_Width));
+			bbMin.y = Clamp(bbMin.y, 0.0f, float(m_Height));
+
+			bbMax.x = Clamp(bbMax.x, 0.0f, float(m_Width));
+			bbMax.y = Clamp(bbMax.y, 0.0f, float(m_Height));
+
+			for(int py = int(bbMin.y); py < int(ceil(bbMax.y)); ++py)
+			{
+				for(int px = int(bbMin.x); px < int(ceil(bbMax.x)); ++px)
+				{
+					
+					if(m_RenderSettings.ShowBoundingBox)
+					{
+						// Render white pixels where bounding box is
+						m_pBackBufferPixels[px + (py * m_Width)] = SDL_MapRGB(m_pBackBuffer->format,
+							static_cast<uint8_t>( 255),
+							static_cast<uint8_t>(255),
+							static_cast<uint8_t>(255));
+						continue;
+					}
+
+					// Get the current pixel into a vector
+					Vector2 pixel{ float(px) + 0.5f, float(py) + 0.5f };  // Define pixel as 2D point (take center of the pixel)
+
+					// Get the signed areas of every edge (no division by 2 because triangle area isn't either, and we are only interested in percentage)
+					const float signedAreaParallelogramAB{ Vector2::Cross(edgeA, Vector2{ A.position.GetXY(), pixel }) };
+					const float signedAreaParallelogramBC{ Vector2::Cross(edgeB, Vector2{ B.position.GetXY(), pixel }) };
+					const float signedAreaParallelogramCA{ Vector2::Cross(edgeC, Vector2{ C.position.GetXY(), pixel }) };
+
+					// isInside will turn false if any of the below 3 caclulations returns a negative number (true &= true -> true while true &= false -> false)
+					bool isInside = true;
+
+					switch(m_RenderSettings.CullMode)
+					{
+						case RenderSettings::CullModes::BackFace:
+							isInside = signedAreaParallelogramAB >= 0.0f && signedAreaParallelogramBC >= 0.0f && signedAreaParallelogramCA >= 0.0f;
+							break;
+						case RenderSettings::CullModes::FrontFace:
+							isInside = signedAreaParallelogramAB <= 0.0f && signedAreaParallelogramBC <= 0.0f && signedAreaParallelogramCA <= 0.0f;
+							break;
+						case RenderSettings::CullModes::None:
+							isInside = signedAreaParallelogramAB >= 0.0f && signedAreaParallelogramBC >= 0.0f && signedAreaParallelogramCA >= 0.0f;  // Inside Back
+							// inside triangle either front or back (|= "or's" the 2 together)
+							isInside |= signedAreaParallelogramAB <= 0.0f && signedAreaParallelogramBC <= 0.0f && signedAreaParallelogramCA <= 0.0f; // Inside Front
+							break;
+						default:
+							assert(false);
+					}
+					
+
+					if(isInside)
+					{
+						// Perform clipping
+						//if (A.position.x < -1.0f || A.position.x > 1.0f)
+						//	continue;
+
+						//if (A.position.y < -1.0f || A.position.y > 1.0f)
+						//	continue;
+
+
+						// Get the weights of each vertex
+						const float triangleArea = Vector2::Cross(edgeA, -edgeC);
+						const float weightA{ signedAreaParallelogramBC / triangleArea };
+						const float weightB{ signedAreaParallelogramCA / triangleArea };
+						const float weightC{ signedAreaParallelogramAB / triangleArea };
+
+						// Check if total weight is +/- 1.0f;
+						assert((weightA + weightB + weightC) > 0.99f);
+						assert((weightA + weightB + weightC) < 1.01f);
+						
+						// Get the interpolated Z buffer value
+						float zBuffer = 1.0f / ((weightA / A.position.z) + (weightB / B.position.z) + (weightC / C.position.z));
+
+						// Check the depth buffer
+						if(zBuffer > m_pDepthBufferPixels[px + (py * m_Width)])
+							continue;
+
+						if(zBuffer < 0.0f || zBuffer > 1.0f)
+							continue;
+
+						m_pDepthBufferPixels[px + (py * m_Width)] = zBuffer;
+
+						float wInterpolated = 1.0f /
+							((1.0f / A.position.w) * weightA + (1.0f / B.position.w) * weightB + (1.0f / C.position.w) * weightC);
+
+						// Get the interpolated UV
+						Vector2 uvInterpolated{
+							(A.uv / A.position.w) * weightA +
+							(B.uv / B.position.w) * weightB +
+							(C.uv / C.position.w) * weightC
+						};
+						uvInterpolated *= wInterpolated;
+
+						// Get the interpolated color
+						ColorRGB colorInterpolated{
+							(A.color / A.position.w) * weightA +
+							(B.color / B.position.w) * weightB +
+							(C.color / C.position.w) * weightC
+						};
+						colorInterpolated *= wInterpolated;
+
+						// Get the interpolated normal
+						Vector3 normalInterpolated{
+							(A.normal / A.position.w) * weightA +
+							(B.normal / B.position.w) * weightB +
+							(C.normal / C.position.w) * weightC
+						};
+						normalInterpolated *= wInterpolated;
+						normalInterpolated.Normalize();
+
+						// Get the interpolated tangent
+						Vector3 tangentInterpolated{
+							(A.tangent / A.position.w) * weightA +
+							(B.tangent / B.position.w) * weightB +
+							(C.tangent / C.position.w) * weightC
+						};
+						tangentInterpolated *= wInterpolated;
+						tangentInterpolated.Normalize();
+
+						// Get the interpolated viewdirection
+						Vector3 viewDirectionInterpolated{
+							(A.viewDirection / A.position.w) * weightA +
+							(B.viewDirection / B.position.w) * weightB +
+							(C.viewDirection / C.position.w) * weightC
+						};
+						viewDirectionInterpolated *= wInterpolated;
+						viewDirectionInterpolated.Normalize();
+
+
+						Vertex_Out vertexOut{};
+						vertexOut.position = Vector4{ pixel.x, pixel.y, zBuffer, wInterpolated };
+						vertexOut.color = colorInterpolated;
+						vertexOut.uv = uvInterpolated;
+						vertexOut.normal = normalInterpolated;
+						vertexOut.tangent = tangentInterpolated;
+						vertexOut.viewDirection = viewDirectionInterpolated;
+
+						//PixelShading(vertexOut);
+
+						ColorRGB finalColor{};
+						if(m_RenderSettings.ShowDepthBuffer)
+						{
+							const float remapMin{ 0.970f };
+							const float remapMax{ 1.0f };							
+
+							float depthColor = (Clamp(zBuffer, remapMin, remapMax) - remapMin) / (remapMax - remapMin);
+
+							finalColor = { depthColor, depthColor, depthColor };
+						}
+						else
+						{
+							finalColor = PixelShader(vertexOut);
+						}
+						
+
+						finalColor.MaxToOne();
+						m_pBackBufferPixels[px + (py * m_Width)] = SDL_MapRGB(m_pBackBuffer->format,
+							static_cast<uint8_t>(finalColor.r * 255),
+							static_cast<uint8_t>(finalColor.g * 255),
+							static_cast<uint8_t>(finalColor.b * 255));
+
+					}
+				}
+			}
+		}
 	}
+
+}
+
+void Renderer::RenderHardware() const
+{
+	ColorRGB clearColor{ m_UniformClearColor };
+
+	if(!m_IsInitialized)
+		return;
+
+	// Clear uniform clear color according to setting
+	if(m_RenderSettings.UniformClearColor == false)
+		clearColor = ColorRGB{ .39f, .59f, .93f }; // Hardware clear color -> Cornflower blue;
+
+	// DirectX
+	//1. CLEAR RTV & DSV
+	m_pDeviceContext->ClearRenderTargetView(m_pRenderTargetView, &clearColor.r);
+	m_pDeviceContext->ClearDepthStencilView(m_pDepthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.f, 0);
+
+	// 2. SET PIPELINE + INVOKE DRAWCALLS (= RENDER)
+	for(Mesh* pMesh : m_MeshPtrs)
+	{
+		if(!pMesh->Visible())
+			continue;
+
+		Matrix worldViewProjectionMatrix{ pMesh->GetWorldMatrix() * m_pCamera->GetViewMatrix() * m_pCamera->GetProjectionMatrix() };
+		pMesh->Render(m_pDeviceContext, worldViewProjectionMatrix, m_pCamera->GetInverseViewMatrix());
+	}
+
+	// SWAP THE BACKBUFFER / PRESENT
+	m_pSwapChain->Present(0, 0);
 }
 
 void Renderer::ToggleRenderMethod()
 {
 	if(m_RenderSettings.RenderMethod == RenderSettings::RenderMethods::Hardware)
 	{
-
+		PrintColor("**(SHARED)Rasterizer Mode = SOFTWARE", TextColor::Yellow);		
 		m_RenderSettings.RenderMethod = RenderSettings::RenderMethods::Software;
 
 	}
 	else if(m_RenderSettings.RenderMethod == RenderSettings::RenderMethods::Software)
 	{
+		PrintColor("**(SHARED)Rasterizer Mode = HARDWARE", TextColor::Yellow);
 		m_RenderSettings.RenderMethod = RenderSettings::RenderMethods::Hardware;
-	}
-	else
-	{
-		assert(false && "No valid rendermethod");
 	}
 }
 
@@ -229,15 +537,6 @@ void Renderer::ToggleUniformClearColor()
 		PrintColor("**(SHARED) Uniform ClearColor OFF", TextColor::Yellow);
 }
 
-void Renderer::TogglePrintFPS()
-{
-	m_RenderSettings.PrintFPS = !m_RenderSettings.PrintFPS;
-
-	if(m_RenderSettings.PrintFPS)
-		PrintColor("**(SHARED) Print FPS ON", TextColor::Green);
-	else
-		PrintColor("**(SHARED) Print FPS OFF", TextColor::Green);
-}
 
 void Renderer::ToggleFireFX()
 {
@@ -254,26 +553,35 @@ void Renderer::ToggleFireFX()
 
 }
 
-void Renderer::ToggleSampleState()
+void Renderer::ToggleSampleFilter()
 {
 	// HARDWARE ONLY
 	if(m_RenderSettings.RenderMethod == RenderSettings::RenderMethods::Hardware)
 	{
 		switch(m_RenderSettings.SampleState)
 		{
-			case RenderSettings::SampleStates::Point:
-				m_RenderSettings.SampleState = RenderSettings::SampleStates::Linear;
+			case Effect::SamplerFilter::Point:
+				m_RenderSettings.SampleState = Effect::SamplerFilter::Linear;
 				PrintColor("**(HARDWARE) Sample Filter = Linear", TextColor::Green);
 				break;
-			case RenderSettings::SampleStates::Linear:
-				m_RenderSettings.SampleState = RenderSettings::SampleStates::Anisotropic;
+
+			case Effect::SamplerFilter::Linear:
+				m_RenderSettings.SampleState = Effect::SamplerFilter::Anisotropic;
 				PrintColor("**(HARDWARE) Sample Filter = Anisotropic", TextColor::Green);
 				break;
-			case RenderSettings::SampleStates::Anisotropic:
-				m_RenderSettings.SampleState = RenderSettings::SampleStates::Point;
+
+			case Effect::SamplerFilter::Anisotropic:
+				m_RenderSettings.SampleState = Effect::SamplerFilter::Point;
 				PrintColor("**(HARDWARE) Sample Filter = Point", TextColor::Green);
 				break;
 		}
+
+		// loop over every mesh and set the effect
+		for(Mesh* pMesh : m_MeshPtrs)
+		{
+			pMesh->GetEffect()->SetSamplerFilter(m_RenderSettings.SampleState);
+		}
+
 	}
 }
 
@@ -373,6 +681,112 @@ void Renderer::PrintConsoleCommands()
 	std::cout << std::endl;
 
 }
+
+void Renderer::VertexTransformationFunction(const std::vector<Mesh*>& meshes) const
+{
+	for(Mesh* mesh : meshes)
+	{
+		// Calculate WorldViewProjectionmatrix for every mesh	
+		Matrix meshWorldMatrix{ mesh->GetWorldMatrix() };
+		Matrix worldViewProjectionMatrix = meshWorldMatrix * (m_pCamera->GetViewMatrix() * m_pCamera->GetProjectionMatrix());
+
+		mesh->vertices_out.clear();
+		mesh->vertices_out.reserve(mesh->vertices.size());
+		for(const Vertex& vert : mesh->vertices)
+		{
+			// World to camera (view space)
+			Vector4 newPosition = worldViewProjectionMatrix.TransformPoint({ vert.position, 1.0f });
+
+			// Perspective divide 
+			newPosition.x /= newPosition.w;
+			newPosition.y /= newPosition.w;
+			newPosition.z /= newPosition.w;
+
+			// Our coords are now in NDC space
+			// Multiply the normals and tangents with the worldmatrix to convert them to worldspace
+			 //We only want to rotate them, so use transformvector, and normalize after
+			const Vector3 newNormal = meshWorldMatrix.TransformVector(vert.normal).Normalized();
+			const Vector3 newTangent = meshWorldMatrix.TransformVector(vert.tangent).Normalized();
+
+			// Calculate vert world position
+			const Vector3 vertPosition{ mesh->GetWorldMatrix().TransformPoint(vert.position) };
+
+			// Store the new position in the vertices out as Vertex out, because this one has a position 4 / vector4
+			Vertex_Out& outVert = mesh->vertices_out.emplace_back(Vertex_Out{});
+			outVert.position = newPosition;
+			outVert.color = vert.color;
+			outVert.uv = vert.uv;
+			outVert.normal = newNormal;
+			outVert.tangent = newTangent;
+			outVert.viewDirection = { vertPosition - m_pCamera->GetOrigin() };
+		}
+	}
+}
+
+ColorRGB Renderer::PixelShader(const Vertex_Out& vert) const
+{
+	const Vector3 lightDirection{ m_SceneSettings.Light.Direction };
+	const ColorRGB lightColor{ m_SceneSettings.Light.Color };
+	const float lightIntensity{ m_SceneSettings.Light.Intensity };
+	const ColorRGB ambientColor{ m_SceneSettings.AmbientLight };
+
+	const ColorRGB lightRadiance{ lightColor * lightIntensity };
+	const float specularGlossiness{ 25.0f };  // Shininess
+
+	const ColorRGB diffuseColorSample{ m_pVehicleDiffuse->Sample(vert.uv) };
+	const ColorRGB specularColorSample{ m_pVehicleSpecular->Sample(vert.uv) };
+	const ColorRGB normalColorSample{ m_pVehicleNormal->Sample(vert.uv) };
+	const ColorRGB glossinessColor{ m_pVehicleGloss->Sample(vert.uv) };
+
+
+	//// Calculate tangent space axis
+	const Vector3 binormal{ Vector3::Cross(vert.normal, vert.tangent) };
+	const Matrix tangentSpaceAxis{ Matrix{ vert.tangent, binormal, vert.normal, Vector3::Zero } };  // {} = 0 vector
+
+
+	ColorRGB x = 2.0f * normalColorSample - colors::White;
+	////Calculate normal in tangent space
+	const Vector3 tangentNormal{ normalColorSample.r * 2.0f - 1.0f, normalColorSample.g * 2.0f - 1.0f, normalColorSample.b * 2.0f - 1.0f };
+	const Vector3 normalInTangentSpace{ tangentSpaceAxis.TransformVector(tangentNormal.Normalized()).Normalized() };
+
+	//// Select normal based on settings
+	const Vector3 currentNormal{ m_RenderSettings.UseNormalMap ? normalInTangentSpace : vert.normal };
+
+	//// Calculate observed area / lambert Cosine
+	const float observedArea{ Vector3::Dot(currentNormal, -lightDirection) };
+
+	if(observedArea < 0.0f)
+		return { 0,0,0 };
+
+
+	// Calculate lambert
+	const ColorRGB lambertDiffuse{ (1.0f * diffuseColorSample) / PI };
+
+	// Calculate phong
+	const Vector3 reflect{ lightDirection - (2.0f * Vector3::Dot(currentNormal, lightDirection) * currentNormal) };
+	const float RdotV{ std::max(0.0f, Vector3::Dot(reflect, -vert.viewDirection)) };
+	const ColorRGB phongSpecular{ specularColorSample * powf(RdotV, glossinessColor.r * specularGlossiness) }; // Glosinness map is greyscale, ro r g and b are the same
+
+	switch(m_RenderSettings.ShadingMode)
+	{
+		case RenderSettings::ShadingModes::Combined:
+			return ((lightRadiance * lambertDiffuse) + phongSpecular + ambientColor) * observedArea;
+			break;
+		case RenderSettings::ShadingModes::ObservedArea:
+			return ColorRGB{ observedArea, observedArea, observedArea };
+			break;
+		case RenderSettings::ShadingModes::Diffuse:
+			return lightRadiance * lambertDiffuse * observedArea;
+			break;
+		case RenderSettings::ShadingModes::Specular:
+			return phongSpecular;
+			break;
+		default:
+			return { 0,0,0 };
+			break;
+	}
+}
+
 
 HRESULT Renderer::InitializeDirectX()
 {

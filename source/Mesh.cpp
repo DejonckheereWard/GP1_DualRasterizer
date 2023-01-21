@@ -2,12 +2,15 @@
 #include "Mesh.h"
 #include <cassert>
 
-Mesh::Mesh(ID3D11Device* pDevice, Effect* pEffect, const std::vector<Vertex>& vertices, const std::vector<uint32_t> indices, const Vector3& position)
+Mesh::Mesh(ID3D11Device* pDevice, Effect* pEffect, const std::vector<Vertex>& _vertices, const std::vector<uint32_t> _indices, const Vector3& position):
+	vertices{_vertices},
+	indices{_indices},
+	vertices_out{}
 {
+	// Init the position
 	Translate(position);
 
-	// Init the position in the worldmatrix
-
+	// Hardware ---------------------------------------------------
 	// Create an instance of the effect class
 	m_pEffect = pEffect;
 	//m_pEffect = new Effect(pDevice, L"Resources/PosCol3D.fx");

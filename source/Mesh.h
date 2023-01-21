@@ -13,6 +13,9 @@ struct Vertex
 	Vector3 normal{};
 	Vector3 tangent{};
 	Vector2 uv{};
+
+	// Software only
+	ColorRGB color{};
 };
 
 struct Vertex_Out
@@ -22,13 +25,23 @@ struct Vertex_Out
 	Vector3 normal{};
 	Vector3 tangent{};
 	Vector2 uv{};
+
+	// Software only
+	ColorRGB color{};
+	Vector3 viewDirection{};
+};
+
+enum class PrimitiveTopology
+{
+	TriangleList,
+	TriangleStrip
 };
 
 
 class Mesh final
 {
 public:
-	Mesh(ID3D11Device* pDevice, Effect* pEffect, const std::vector<Vertex>& vertices, const std::vector<uint32_t> indices, const Vector3& position = {});
+	Mesh(ID3D11Device* pDevice, Effect* pEffect, const std::vector<Vertex>& _vertices, const std::vector<uint32_t> _indices, const Vector3& position = {});
 
 	~Mesh();
 	Mesh(const Mesh&) = delete;
@@ -41,6 +54,8 @@ public:
 	Effect* GetEffect() const { return m_pEffect; }
 
 	Matrix GetWorldMatrix() const { return m_ScaleTransform * m_RotationTransform * m_TranslationTransform; };
+	PrimitiveTopology GetTopology() const { return m_PrimitiveTopology; };
+
 	//void SetWorldMatrix(const Matrix& worldMatrix) { m_WorldMatrix = worldMatrix; };
 
 	void Translate(const Vector3& translation)
@@ -79,8 +94,22 @@ public:
 		m_ScaleTransform *= Matrix::CreateScale(scale);
 	}
 
+	// Software -------------------------------
+	// Public for easy access
+	std::vector<Vertex> vertices{};
+	std::vector<uint32_t> indices{};
+	std::vector<Vertex_Out> vertices_out{};
+
+
+	void SetVisibility(bool _visible) { m_Visible = _visible; };
+	bool Visible() const { return m_Visible; };
 
 private:
+	// Shared ---------------------------------
+	PrimitiveTopology m_PrimitiveTopology{ PrimitiveTopology::TriangleList };
+	bool m_Visible{ true };  // Enables disables rendering
+
+	// Hardware -------------------------------
 	Effect* m_pEffect;
 
 	ID3DX11EffectTechnique* m_pTechnique;
@@ -92,8 +121,8 @@ private:
 
 	uint32_t m_NumIndices;
 
-	//Matrix m_WorldMatrix;
 
+	// These 3 together form the worldmatrix
 	Matrix m_RotationTransform{};
 	Matrix m_TranslationTransform{};
 	Matrix m_ScaleTransform{};
