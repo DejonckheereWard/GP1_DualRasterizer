@@ -80,7 +80,7 @@ void Camera::Update(const Timer* pTimer)
 	if((mouseState & SDL_BUTTON(SDL_BUTTON_LEFT)) && mouseState & SDL_BUTTON(SDL_BUTTON_RIGHT))
 	{
 		// mouseX yaw left & right, mouse Y moves forwards & backwards
-		const float upwards = -mouseY * 0.1f;
+		const float upwards = -mouseY * m_RotationSpeed;  // Not rotation but needed same value ish as this
 		m_Origin += m_Up * upwards;
 		hasMoved = true;
 	}

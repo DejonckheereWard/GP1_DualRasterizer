@@ -54,7 +54,7 @@ private:
 	const float m_BoostMovementSpeed{ 40.0f };
 	float m_CurrentMovementSpeed{ m_BaseMovementSpeed };
 
-	const float m_RotationSpeed{ 0.1f };
+	const float m_RotationSpeed{ 0.05f };
 	const float m_KeyboardRotationSpeed{ 80.0f };
 	const float m_KeyboardMovementSpeedMultiplier{1.2f};  // Speed increase compared to mouse
 
