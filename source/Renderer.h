@@ -147,6 +147,7 @@ private:
 
 	// Software ----------------------------
 	void VertexTransformationFunction(const std::vector<Mesh*>& meshes) const;
+	void SoftwareRenderTriangle(Vertex_Out A, Vertex_Out B, Vertex_Out C) const;
 	ColorRGB PixelShader(const Vertex_Out& vert) const;  // Software pixel shader
 	SDL_Surface* m_pFrontBuffer{ nullptr };
 	SDL_Surface* m_pBackBuffer{ nullptr };

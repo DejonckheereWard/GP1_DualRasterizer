@@ -234,11 +234,11 @@ void Renderer::RenderSoftware() const
 		concurrency::parallel_for(0u, uint32_t((pMesh->indices.size() - 2) / increment), [=, this](uint32_t index)
 		{
 			{
-				uint32_t indiceIdx{ index * increment };
+				const uint32_t indiceIdx{ index * increment };
 				// Get the vertices using the indice numbers
-				uint32_t indiceA{ pMesh->indices[indiceIdx] };
-				uint32_t indiceB{ pMesh->indices[indiceIdx + 1] };
-				uint32_t indiceC{ pMesh->indices[indiceIdx + 2] };
+				const uint32_t indiceA{ pMesh->indices[indiceIdx] };
+				const uint32_t indiceB{ pMesh->indices[indiceIdx + 1] };
+				const uint32_t indiceC{ pMesh->indices[indiceIdx + 2] };
 
 				Vertex_Out A{ pMesh->vertices_out[indiceA] };
 				Vertex_Out B{ pMesh->vertices_out[indiceB] };
@@ -292,188 +292,8 @@ void Renderer::RenderSoftware() const
 				C.position.x = (C.position.x + 1) / 2.0f * m_Width; // Screen X
 				C.position.y = (1 - C.position.y) / 2.0f * m_Height; // Screen Y,
 
-				// Define the edges of the screen triangle
-				const Vector2 edgeA{ A.position.GetXY(), B.position.GetXY() };
-				const Vector2 edgeB{ B.position.GetXY(), C.position.GetXY() };
-				const Vector2 edgeC{ C.position.GetXY(), A.position.GetXY() };
-
-
-				// Get the bounding box of the triangle (min max)
-				Vector2 bbMin;
-				bbMin.x = std::min(A.position.x, std::min(B.position.x, C.position.x));
-				bbMin.y = std::min(A.position.y, std::min(B.position.y, C.position.y));
-
-				Vector2 bbMax;
-				bbMax.x = std::max(A.position.x, std::max(B.position.x, C.position.x));
-				bbMax.y = std::max(A.position.y, std::max(B.position.y, C.position.y));
-
-				bbMin.x = Clamp(bbMin.x, 0.0f, float(m_Width));
-				bbMin.y = Clamp(bbMin.y, 0.0f, float(m_Height));
-
-				bbMax.x = Clamp(bbMax.x, 0.0f, float(m_Width));
-				bbMax.y = Clamp(bbMax.y, 0.0f, float(m_Height));
-
-
-
-
-				for(int py = int(bbMin.y); py < int(ceil(bbMax.y)); ++py)
-				{
-					for(int px = int(bbMin.x); px < int(ceil(bbMax.x)); ++px)
-					{
-
-						if(m_RenderSettings.ShowBoundingBox)
-						{
-							// Render white pixels where bounding box is
-							m_pBackBufferPixels[px + (py * m_Width)] = SDL_MapRGB(m_pBackBuffer->format,
-								static_cast<uint8_t>(255),
-								static_cast<uint8_t>(255),
-								static_cast<uint8_t>(255));
-							continue;
-						}
-
-						// Get the current pixel into a vector
-						Vector2 pixel{ float(px) + 0.5f, float(py) + 0.5f };  // Define pixel as 2D point (take center of the pixel)
-
-						// Get the signed areas of every edge (no division by 2 because triangle area isn't either, and we are only interested in percentage)
-						const float signedAreaParallelogramAB{ Vector2::Cross(edgeA, Vector2{ A.position.GetXY(), pixel }) };
-						const float signedAreaParallelogramBC{ Vector2::Cross(edgeB, Vector2{ B.position.GetXY(), pixel }) };
-						const float signedAreaParallelogramCA{ Vector2::Cross(edgeC, Vector2{ C.position.GetXY(), pixel }) };
-
-						// isInside will turn false if any of the below 3 caclulations returns a negative number (true &= true -> true while true &= false -> false)
-						bool isInside = true;
-
-						switch(m_RenderSettings.CullMode)
-						{
-							case RenderSettings::CullModes::BackFace:
-								isInside = signedAreaParallelogramAB >= 0.0f && signedAreaParallelogramBC >= 0.0f && signedAreaParallelogramCA >= 0.0f;
-								break;
-							case RenderSettings::CullModes::FrontFace:
-								isInside = signedAreaParallelogramAB <= 0.0f && signedAreaParallelogramBC <= 0.0f && signedAreaParallelogramCA <= 0.0f;
-								break;
-							case RenderSettings::CullModes::None:
-								isInside = signedAreaParallelogramAB >= 0.0f && signedAreaParallelogramBC >= 0.0f && signedAreaParallelogramCA >= 0.0f;  // Inside Back
-								// inside triangle either front or back (|= "or's" the 2 together)
-								isInside |= signedAreaParallelogramAB <= 0.0f && signedAreaParallelogramBC <= 0.0f && signedAreaParallelogramCA <= 0.0f; // Inside Front
-								break;
-							default:
-								assert(false);
-						}
-
-
-						if(isInside)
-						{
-							// Perform clipping
-							//if (A.position.x < -1.0f || A.position.x > 1.0f)
-							//	continue;
-
-							//if (A.position.y < -1.0f || A.position.y > 1.0f)
-							//	continue;
-
-
-							// Get the weights of each vertex
-							const float triangleArea = Vector2::Cross(edgeA, -edgeC);
-							const float weightA{ signedAreaParallelogramBC / triangleArea };
-							const float weightB{ signedAreaParallelogramCA / triangleArea };
-							const float weightC{ signedAreaParallelogramAB / triangleArea };
-
-							// Check if total weight is +/- 1.0f;
-							assert((weightA + weightB + weightC) > 0.99f);
-							assert((weightA + weightB + weightC) < 1.01f);
-
-							// Get the interpolated Z buffer value
-							float zBuffer = 1.0f / ((weightA / A.position.z) + (weightB / B.position.z) + (weightC / C.position.z));
-
-							// Check the depth buffer
-							if(zBuffer > m_pDepthBufferPixels[px + (py * m_Width)])
-								continue;
-
-							if(zBuffer < 0.0f || zBuffer > 1.0f)
-								continue;
-
-							m_pDepthBufferPixels[px + (py * m_Width)] = zBuffer;
-
-							float wInterpolated = 1.0f /
-								((1.0f / A.position.w) * weightA + (1.0f / B.position.w) * weightB + (1.0f / C.position.w) * weightC);
-
-							// Get the interpolated UV
-							Vector2 uvInterpolated{
-								(A.uv / A.position.w) * weightA +
-								(B.uv / B.position.w) * weightB +
-								(C.uv / C.position.w) * weightC
-							};
-							uvInterpolated *= wInterpolated;
-
-							// Get the interpolated color
-							ColorRGB colorInterpolated{
-								(A.color / A.position.w) * weightA +
-								(B.color / B.position.w) * weightB +
-								(C.color / C.position.w) * weightC
-							};
-							colorInterpolated *= wInterpolated;
-
-							// Get the interpolated normal
-							Vector3 normalInterpolated{
-								(A.normal / A.position.w) * weightA +
-								(B.normal / B.position.w) * weightB +
-								(C.normal / C.position.w) * weightC
-							};
-							normalInterpolated *= wInterpolated;
-							normalInterpolated.Normalize();
-
-							// Get the interpolated tangent
-							Vector3 tangentInterpolated{
-								(A.tangent / A.position.w) * weightA +
-								(B.tangent / B.position.w) * weightB +
-								(C.tangent / C.position.w) * weightC
-							};
-							tangentInterpolated *= wInterpolated;
-							tangentInterpolated.Normalize();
-
-							// Get the interpolated viewdirection
-							Vector3 viewDirectionInterpolated{
-								(A.viewDirection / A.position.w) * weightA +
-								(B.viewDirection / B.position.w) * weightB +
-								(C.viewDirection / C.position.w) * weightC
-							};
-							viewDirectionInterpolated *= wInterpolated;
-							viewDirectionInterpolated.Normalize();
-
-
-							Vertex_Out vertexOut{};
-							vertexOut.position = Vector4{ pixel.x, pixel.y, zBuffer, wInterpolated };
-							vertexOut.color = colorInterpolated;
-							vertexOut.uv = uvInterpolated;
-							vertexOut.normal = normalInterpolated;
-							vertexOut.tangent = tangentInterpolated;
-							vertexOut.viewDirection = viewDirectionInterpolated;
-
-							//PixelShading(vertexOut);
-
-							ColorRGB finalColor{};
-							if(m_RenderSettings.ShowDepthBuffer)
-							{
-								const float remapMin{ 0.970f };
-								const float remapMax{ 1.0f };
-
-								float depthColor = (Clamp(zBuffer, remapMin, remapMax) - remapMin) / (remapMax - remapMin);
-
-								finalColor = { depthColor, depthColor, depthColor };
-							}
-							else
-							{
-								finalColor = PixelShader(vertexOut);
-							}
-
-
-							finalColor.MaxToOne();
-							m_pBackBufferPixels[px + (py * m_Width)] = SDL_MapRGB(m_pBackBuffer->format,
-								static_cast<uint8_t>(finalColor.r * 255),
-								static_cast<uint8_t>(finalColor.g * 255),
-								static_cast<uint8_t>(finalColor.b * 255));
-
-						}
-					}
-				}
+				SoftwareRenderTriangle(A, B, C);
+				
 			}
 		});
 	}
@@ -583,7 +403,6 @@ void Renderer::PauseRenderer()
 	}
 
 }
-
 
 void Renderer::ToggleFireFX()
 {
@@ -789,6 +608,178 @@ void Renderer::VertexTransformationFunction(const std::vector<Mesh*>& meshes) co
 				outVert.viewDirection = { vertPosition - m_pCamera->GetOrigin() };
 			}
 		});
+	}
+}
+
+void Renderer::SoftwareRenderTriangle(Vertex_Out A, Vertex_Out B, Vertex_Out C) const
+{
+	// Define the edges of the screen triangle
+	const Vector2 edgeA{ A.position.GetXY(), B.position.GetXY() };
+	const Vector2 edgeB{ B.position.GetXY(), C.position.GetXY() };
+	const Vector2 edgeC{ C.position.GetXY(), A.position.GetXY() };
+
+
+	// Get the bounding box of the triangle (min max)
+	Vector2 bbMin;
+	bbMin.x = std::min(A.position.x, std::min(B.position.x, C.position.x));
+	bbMin.y = std::min(A.position.y, std::min(B.position.y, C.position.y));
+
+	Vector2 bbMax;
+	bbMax.x = std::max(A.position.x, std::max(B.position.x, C.position.x));
+	bbMax.y = std::max(A.position.y, std::max(B.position.y, C.position.y));
+
+	bbMin.x = std::clamp(bbMin.x, 0.0f, float(m_Width));
+	bbMin.y = std::clamp(bbMin.y, 0.0f, float(m_Height));
+
+	bbMax.x = std::clamp(bbMax.x, 0.0f, float(m_Width));
+	bbMax.y = std::clamp(bbMax.y, 0.0f, float(m_Height));
+
+	for(int py = int(bbMin.y); py < int(ceil(bbMax.y)); ++py)
+	{
+		for(int px = int(bbMin.x); px < int(ceil(bbMax.x)); ++px)
+		{
+			if(m_RenderSettings.ShowBoundingBox)
+			{
+				// Render white pixels where bounding box is
+				m_pBackBufferPixels[px + (py * m_Width)] = SDL_MapRGB(m_pBackBuffer->format,
+					static_cast<uint8_t>(255),
+					static_cast<uint8_t>(255),
+					static_cast<uint8_t>(255));
+				continue;
+			}
+
+			// Get the current pixel into a vector
+			Vector2 pixel{ float(px) + 0.5f, float(py) + 0.5f };  // Define pixel as 2D point (take center of the pixel)
+
+			// Get the signed areas of every edge (no division by 2 because triangle area isn't either, and we are only interested in percentage)
+			const float signedAreaParallelogramAB{ Vector2::Cross(edgeA, Vector2{ A.position.GetXY(), pixel }) };
+			const float signedAreaParallelogramBC{ Vector2::Cross(edgeB, Vector2{ B.position.GetXY(), pixel }) };
+			const float signedAreaParallelogramCA{ Vector2::Cross(edgeC, Vector2{ C.position.GetXY(), pixel }) };
+
+			// isInside will turn false if any of the below 3 caclulations returns a negative number (true &= true -> true while true &= false -> false)
+			bool isInside = true;
+
+			switch(m_RenderSettings.CullMode)
+			{
+				case RenderSettings::CullModes::BackFace:
+					isInside = signedAreaParallelogramAB > 0.0f && signedAreaParallelogramBC > 0.0f && signedAreaParallelogramCA > 0.0f;
+					break;
+				case RenderSettings::CullModes::FrontFace:
+					isInside = signedAreaParallelogramAB <= 0.0f && signedAreaParallelogramBC <= 0.0f && signedAreaParallelogramCA <= 0.0f;
+					break;
+				case RenderSettings::CullModes::None:
+					isInside = signedAreaParallelogramAB >= 0.0f && signedAreaParallelogramBC >= 0.0f && signedAreaParallelogramCA >= 0.0f;  // Inside Back
+					// inside triangle either front or back (|= "or's" the 2 together)
+					isInside |= signedAreaParallelogramAB <= 0.0f && signedAreaParallelogramBC <= 0.0f && signedAreaParallelogramCA <= 0.0f; // Inside Front
+					break;
+				default:
+					assert(false);
+			}
+
+
+			if(isInside)
+			{
+				// Get the weights of each vertex
+				const float triangleArea = Vector2::Cross(edgeA, -edgeC);
+				const float weightA{ signedAreaParallelogramBC / triangleArea };
+				const float weightB{ signedAreaParallelogramCA / triangleArea };
+				const float weightC{ signedAreaParallelogramAB / triangleArea };
+
+				// Check if total weight is +/- 1.0f;
+				assert((weightA + weightB + weightC) > 0.99f);
+				assert((weightA + weightB + weightC) < 1.01f);
+
+				// Get the interpolated Z buffer value
+				float zBuffer = 1.0f / ((weightA / A.position.z) + (weightB / B.position.z) + (weightC / C.position.z));
+
+				if(zBuffer < 0.0f || zBuffer > 1.0f)
+					continue;
+
+				// Check the depth buffer
+				if(zBuffer >= m_pDepthBufferPixels[px + (py * m_Width)])
+					continue;
+
+				m_pDepthBufferPixels[px + (py * m_Width)] = zBuffer;
+
+				float wInterpolated = 1.0f /
+					((1.0f / A.position.w) * weightA + (1.0f / B.position.w) * weightB + (1.0f / C.position.w) * weightC);
+
+				// Get the interpolated UV
+				Vector2 uvInterpolated{
+					(A.uv / A.position.w) * weightA +
+					(B.uv / B.position.w) * weightB +
+					(C.uv / C.position.w) * weightC
+				};
+				uvInterpolated *= wInterpolated;
+
+				// Get the interpolated color
+				ColorRGB colorInterpolated{
+					(A.color / A.position.w) * weightA +
+					(B.color / B.position.w) * weightB +
+					(C.color / C.position.w) * weightC
+				};
+				colorInterpolated *= wInterpolated;
+
+				// Get the interpolated normal
+				Vector3 normalInterpolated{
+					(A.normal / A.position.w) * weightA +
+					(B.normal / B.position.w) * weightB +
+					(C.normal / C.position.w) * weightC
+				};
+				normalInterpolated *= wInterpolated;
+				normalInterpolated.Normalize();
+
+				// Get the interpolated tangent
+				Vector3 tangentInterpolated{
+					(A.tangent / A.position.w) * weightA +
+					(B.tangent / B.position.w) * weightB +
+					(C.tangent / C.position.w) * weightC
+				};
+				tangentInterpolated *= wInterpolated;
+				tangentInterpolated.Normalize();
+
+				// Get the interpolated viewdirection
+				Vector3 viewDirectionInterpolated{
+					(A.viewDirection / A.position.w) * weightA +
+					(B.viewDirection / B.position.w) * weightB +
+					(C.viewDirection / C.position.w) * weightC
+				};
+				viewDirectionInterpolated *= wInterpolated;
+				viewDirectionInterpolated.Normalize();
+
+
+				Vertex_Out vertexOut{};
+				vertexOut.position = Vector4{ pixel.x, pixel.y, zBuffer, wInterpolated };
+				vertexOut.color = colorInterpolated;
+				vertexOut.uv = uvInterpolated;
+				vertexOut.normal = normalInterpolated;
+				vertexOut.tangent = tangentInterpolated;
+				vertexOut.viewDirection = viewDirectionInterpolated;
+
+				ColorRGB finalColor{};
+				if(m_RenderSettings.ShowDepthBuffer)
+				{
+					const float remapMin{ 0.970f };
+					const float remapMax{ 1.0f };
+
+					float depthColor = (Clamp(zBuffer, remapMin, remapMax) - remapMin) / (remapMax - remapMin);
+
+					finalColor = { depthColor, depthColor, depthColor };
+				}
+				else
+				{
+					finalColor = PixelShader(vertexOut);
+				}
+
+
+				finalColor.MaxToOne();
+				m_pBackBufferPixels[px + (py * m_Width)] = SDL_MapRGB(m_pBackBuffer->format,
+					static_cast<uint8_t>(finalColor.r * 255),
+					static_cast<uint8_t>(finalColor.g * 255),
+					static_cast<uint8_t>(finalColor.b * 255));
+
+			}
+		}
 	}
 }
 
