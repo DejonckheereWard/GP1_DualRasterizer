@@ -119,6 +119,10 @@ int main(int argc, char* args[])
 						case SDL_SCANCODE_F8:
 							pRenderer->ToggleBoundingBox();
 							break;
+
+							// Debug helper
+						case SDL_SCANCODE_ESCAPE:
+							pRenderer->PauseRenderer();
 					}
 					break;
 				default:;

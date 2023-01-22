@@ -103,6 +103,7 @@ public:
 	void ToggleRotation();
 	void CycleCullMode();
 	void ToggleUniformClearColor();
+	void PauseRenderer();
 	
 	// Hardware
 	void ToggleFireFX();
@@ -134,6 +135,7 @@ private:
 	SceneSettings m_SceneSettings;
 	const ColorRGB m_UniformClearColor{ 0.1f, 0.1f, 0.1f };  // -> Dark Gray
 
+	bool m_PauseRenderer{ false };
 
 	// Textures
 	Texture* m_pVehicleDiffuse{};

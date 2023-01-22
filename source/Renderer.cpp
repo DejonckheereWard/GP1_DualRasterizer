@@ -92,7 +92,7 @@ Renderer::Renderer(SDL_Window* pWindow):
 			pEffectVehicle->SetLightColor(m_SceneSettings.Light.Color);
 			pEffectVehicle->SetAmbientlight(m_SceneSettings.AmbientLight);
 			pEffectVehicle->SetShininess(m_SceneSettings.Shininess);
-			
+
 			// Made sure the cullmodes and the indexes matched 1 to 1, i didnt want cullmodes to be defined in 2 places;
 			pEffectVehicle->SetCullMode(int(m_RenderSettings.CullMode));
 		}
@@ -170,6 +170,9 @@ void Renderer::Update(const Timer* pTimer)
 void Renderer::Render() const
 {
 
+	if(m_PauseRenderer)
+		return;
+
 	if(m_RenderSettings.RenderMethod == RenderSettings::RenderMethods::Hardware)
 	{
 		m_MeshPtrs.at(1)->SetVisibility(m_RenderSettings.ShowFireFX);
@@ -211,7 +214,7 @@ void Renderer::RenderSoftware() const
 	SDL_FillRect(m_pBackBuffer, NULL, hexColor);
 
 	// Clear depth buffer
-	std::fill_n(m_pDepthBufferPixels, m_Width * m_Height, FLT_MAX);
+	std::fill_n(m_pDepthBufferPixels, m_Width * m_Height, std::numeric_limits<float>::max());
 
 	VertexTransformationFunction(m_MeshPtrs);
 
@@ -566,6 +569,21 @@ void Renderer::ToggleUniformClearColor()
 		PrintColor("**(SHARED) Uniform ClearColor OFF", TextColor::Yellow);
 }
 
+void Renderer::PauseRenderer()
+{
+	m_PauseRenderer = !m_PauseRenderer;
+
+	if(m_PauseRenderer)
+	{ 
+		PrintColor("**(SHARED) Render Updates OFF", TextColor::Red);
+	}
+	else
+	{
+		PrintColor("**(SHARED) Render Updates ON", TextColor::Red);
+	}
+
+}
+
 
 void Renderer::ToggleFireFX()
 {
@@ -723,56 +741,55 @@ void Renderer::VertexTransformationFunction(const std::vector<Mesh*>& meshes) co
 {
 	// This upper multithreading loop might make more impact if there were more meshes, but since  i dont render the fire
 	// Theres only really one mesh to render anyway, making this kinda redundant in this scenario. but im leaving this in either way.
-	concurrency::parallel_for(0u, (uint32_t)meshes.size(), [=, this](uint32_t index)
-	{
-		{
-			Mesh* pMesh = meshes[index];
+
+
 			// Calculate WorldViewProjectionmatrix for every mesh	
-			Matrix meshWorldMatrix{ pMesh->GetWorldMatrix() };
-			Matrix worldViewProjectionMatrix = meshWorldMatrix * (m_pCamera->GetViewMatrix() * m_pCamera->GetProjectionMatrix());
+	for(Mesh* pMesh : meshes)
+	{
+		Matrix meshWorldMatrix{ pMesh->GetWorldMatrix() };
+		Matrix worldViewProjectionMatrix = meshWorldMatrix * (m_pCamera->GetViewMatrix() * m_pCamera->GetProjectionMatrix());
 
-			pMesh->vertices_out.clear();
-			pMesh->vertices_out.reserve(pMesh->vertices.size());
+		pMesh->vertices_out.clear();
+		pMesh->vertices_out.reserve(pMesh->vertices.size());
 
-			// For the parallelization, i wanted existing slots to fill in the out vertices, hen
-			// Using pushback or emplace back made the order of vertices all messed up (and ended up breaking the 3D model)
-			pMesh->vertices_out.resize(pMesh->vertices.size());
+		// For the parallelization, i wanted existing slots to fill in the out vertices, hen
+		// Using pushback or emplace back made the order of vertices all messed up (and ended up breaking the 3D model)
+		pMesh->vertices_out.resize(pMesh->vertices.size());
 
-			// Multithread the vertex loop
-			concurrency::parallel_for(0u, (uint32_t)pMesh->vertices.size(), [=, this](uint32_t index)
+		// Multithread the vertex loop
+		concurrency::parallel_for(0u, (uint32_t)pMesh->vertices.size(), [=, this](uint32_t index)
+		{
 			{
-				{
-					const Vertex& vert{ pMesh->vertices[index] };
+				const Vertex& vert{ pMesh->vertices[index] };
 
-					// World to camera (view space)
-					Vector4 newPosition = worldViewProjectionMatrix.TransformPoint({ vert.position, 1.0f });
+				// World to camera (view space)
+				Vector4 newPosition = worldViewProjectionMatrix.TransformPoint({ vert.position, 1.0f });
 
-					// Perspective divide 
-					newPosition.x /= newPosition.w;
-					newPosition.y /= newPosition.w;
-					newPosition.z /= newPosition.w;
+				// Perspective divide 
+				newPosition.x /= newPosition.w;
+				newPosition.y /= newPosition.w;
+				newPosition.z /= newPosition.w;
 
-					// Our coords are now in NDC space
-					// Multiply the normals and tangents with the worldmatrix to convert them to worldspace
-					 //We only want to rotate them, so use transformvector, and normalize after
-					const Vector3 newNormal = meshWorldMatrix.TransformVector(vert.normal).Normalized();
-					const Vector3 newTangent = meshWorldMatrix.TransformVector(vert.tangent).Normalized();
+				// Our coords are now in NDC space
+				// Multiply the normals and tangents with the worldmatrix to convert them to worldspace
+				 //We only want to rotate them, so use transformvector, and normalize after
+				const Vector3 newNormal = meshWorldMatrix.TransformVector(vert.normal).Normalized();
+				const Vector3 newTangent = meshWorldMatrix.TransformVector(vert.tangent).Normalized();
 
-					// Calculate vert world position
-					const Vector3 vertPosition{ pMesh->GetWorldMatrix().TransformPoint(vert.position) };
+				// Calculate vert world position
+				const Vector3 vertPosition{ pMesh->GetWorldMatrix().TransformPoint(vert.position) };
 
-					// Store the new position in the vertices out as Vertex out, because this one has a position 4 / vector4
-					Vertex_Out& outVert = pMesh->vertices_out[index];
-					outVert.position = newPosition;
-					outVert.color = vert.color;
-					outVert.uv = vert.uv;
-					outVert.normal = newNormal;
-					outVert.tangent = newTangent;
-					outVert.viewDirection = { vertPosition - m_pCamera->GetOrigin() };
-				}
-			});
-		}
-	});
+				// Store the new position in the vertices out as Vertex out, because this one has a position 4 / vector4
+				Vertex_Out& outVert = pMesh->vertices_out[index];
+				outVert.position = newPosition;
+				outVert.color = vert.color;
+				outVert.uv = vert.uv;
+				outVert.normal = newNormal;
+				outVert.tangent = newTangent;
+				outVert.viewDirection = { vertPosition - m_pCamera->GetOrigin() };
+			}
+		});
+	}
 }
 
 ColorRGB Renderer::PixelShader(const Vertex_Out& vert) const
