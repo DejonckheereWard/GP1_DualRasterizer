@@ -36,9 +36,9 @@ struct RenderSettings
 
 	enum class CullModes
 	{
-		BackFace,
-		FrontFace,
-		None,
+		BackFace=0,
+		FrontFace=1,
+		None=2,
 	};
 
 	enum class SampleStates
@@ -151,7 +151,9 @@ private:
 	uint32_t* m_pBackBufferPixels{};
 	float* m_pDepthBufferPixels{};
 
-	// DIRECTX -----------------------------
+	// Hardware -----------------------------
+	void SetShaderCullModes();  // To set cullmode inside shader using the rendersettings
+	
 	HRESULT InitializeDirectX();
 
 	ID3D11Device* m_pDevice;

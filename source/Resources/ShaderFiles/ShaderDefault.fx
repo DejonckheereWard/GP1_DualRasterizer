@@ -17,15 +17,11 @@ float3 gAmbientColor : AmbientColor;
 float4x4 gWorldMatrix : WORLD;
 float4x4 gViewInverse : VIEWINVERSE;
 
-SamplerState gSampler; // Used to sample textures
+SamplerState gSampler : SAMPLERSTATE; // Used to sample textures
 
 const float PI = 3.1415926535897932384626433832795f;
 
-RasterizerState gRasterizerState
-{
-    CullMode = back;
-    FrontCounterClockwise = false;
-};
+RasterizerState gRasterizerState : RASTERIZERSTATE;
 
 BlendState gBlendState
 {

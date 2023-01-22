@@ -9,5 +9,5 @@ void Utils::PrintColor(const std::string& text, TextColor textColor, const std::
 
 	SetConsoleTextAttribute(hConsole, static_cast<WORD>(textColor));
 	std::cout << text << end;
-	SetConsoleTextAttribute(hConsole, static_cast<WORD>(TextColor::White));
+	SetConsoleTextAttribute(hConsole, static_cast<WORD>(TextColor::White));  // Default color
 }

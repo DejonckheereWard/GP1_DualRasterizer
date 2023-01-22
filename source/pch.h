@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <sstream>
 #include <memory>
+#include <cassert>
 #define NOMINMAX  //for directx
 
 // SDL Headers

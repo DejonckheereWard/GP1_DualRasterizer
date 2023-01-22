@@ -29,6 +29,7 @@ public:
 	void SetAmbientlight(ColorRGB ambientLight);
 	void SetShininess(float shininess);
 
+	void SetCullMode(int idx) const;
 
 private:
 	// Textures
@@ -37,7 +38,12 @@ private:
 	ID3DX11EffectShaderResourceVariable* m_pSpecularMapVar;
 	ID3DX11EffectShaderResourceVariable* m_pGlossinessMapVar;
 
-	//ID3DX11EffectMatrixVariable;
+	// Rasterizer State (for culling)
+	ID3DX11EffectRasterizerVariable* m_pRasterizerStateVar;
+	ID3D11RasterizerState* m_pRasterizerStateBFC; // BackFace Culling
+	ID3D11RasterizerState* m_pRasterizerStateFFC; // FrontFace Culling
+	ID3D11RasterizerState* m_pRasterizerStateNC; // NO Culling
+
 	// Light
 	ID3DX11EffectVectorVariable* m_pLightDirectionVar;
 	ID3DX11EffectScalarVariable* m_pLightIntensityVar;

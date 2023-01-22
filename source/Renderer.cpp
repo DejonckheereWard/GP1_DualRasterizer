@@ -92,6 +92,9 @@ Renderer::Renderer(SDL_Window* pWindow):
 			pEffectVehicle->SetLightColor(m_SceneSettings.Light.Color);
 			pEffectVehicle->SetAmbientlight(m_SceneSettings.AmbientLight);
 			pEffectVehicle->SetShininess(m_SceneSettings.Shininess);
+			
+			// Made sure the cullmodes and the indexes matched 1 to 1, i didnt want cullmodes to be defined in 2 places;
+			pEffectVehicle->SetCullMode(int(m_RenderSettings.CullMode));
 		}
 	}
 
@@ -549,6 +552,8 @@ void Renderer::CycleCullMode()
 			PrintColor("**(SHARED) CullMode = Back", TextColor::Yellow);
 			break;
 	}
+
+	SetShaderCullModes();
 }
 
 void Renderer::ToggleUniformClearColor()
@@ -709,7 +714,9 @@ void Renderer::PrintConsoleCommands()
 void Renderer::PrintExtraInfo()
 {
 	PrintColor("[Extra Features]", TextColor::LightCyan);
-	PrintColor("    Multithreading for the Software Rasterizer", TextColor::LightCyan);
+	PrintColor("    Multithreading for the Software Rasterizer (VertexTransformation and Render loop)", TextColor::LightCyan);
+	std::cout << std::endl;
+
 }
 
 void Renderer::VertexTransformationFunction(const std::vector<Mesh*>& meshes) const
@@ -832,6 +839,23 @@ ColorRGB Renderer::PixelShader(const Vertex_Out& vert) const
 	}
 }
 
+
+void Renderer::SetShaderCullModes()
+{
+	for(Mesh* pMesh : m_MeshPtrs)
+	{
+		Effect* pEffect{ pMesh->GetEffect() };
+
+		// Try casting to EffectVehicle, only set cullmode if cast worked
+		// Dynamic casts not ideal
+		EffectVehicle* pEffectVehicle{ dynamic_cast<EffectVehicle*>(pEffect) };
+		if(pEffectVehicle)
+		{
+			// I made sure the cullmode and index matched up, i didnt want cullmodes to be defined in 2 spots, hence the conversion
+			pEffectVehicle->SetCullMode(int(m_RenderSettings.CullMode));
+		}
+	}
+}
 
 HRESULT Renderer::InitializeDirectX()
 {

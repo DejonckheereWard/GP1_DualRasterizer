@@ -62,10 +62,39 @@ EffectVehicle::EffectVehicle(ID3D11Device* pDevice, const std::wstring& assetFil
 	{
 		std::wcout << L"m_pShininessVar is not valid!\n";
 	}
+
+	// Rasterizer state (for culling setting)
+	m_pRasterizerStateVar = m_pEffect->GetVariableByName("gRasterizerState")->AsRasterizer();
+	if(!m_pRasterizerStateVar->IsValid())
+	{
+		std::wcout << L"m_pShininessVar is not valid!\n";
+	}
 	
 
+	// Create the different Rasterizer States with different culling options
+	D3D11_RASTERIZER_DESC rasterizerDesc{};
+	rasterizerDesc.FillMode = D3D11_FILL_SOLID;
+	rasterizerDesc.FrontCounterClockwise = FALSE;
+	HRESULT hr;
+	
 
+	// Backface culling
+	rasterizerDesc.CullMode = D3D11_CULL_BACK;
+	hr = pDevice->CreateRasterizerState(&rasterizerDesc, &m_pRasterizerStateBFC);
+	if(FAILED(hr))
+		std::wcout << L"Failed to create Rasterizer State with backface culling" << std::endl;
 
+	// Frontface culling
+	rasterizerDesc.CullMode = D3D11_CULL_FRONT;
+	hr = pDevice->CreateRasterizerState(&rasterizerDesc, &m_pRasterizerStateFFC);
+	if(FAILED(hr))
+		std::wcout << L"Failed to create Rasterizer State with frontface culling" << std::endl;
+
+	// NO culling
+	rasterizerDesc.CullMode = D3D11_CULL_NONE;
+	hr = pDevice->CreateRasterizerState(&rasterizerDesc, &m_pRasterizerStateNC);
+	if(FAILED(hr))
+		std::wcout << L"Failed to create Rasterizer State with NO culling" << std::endl;
 
 
 }
@@ -75,16 +104,24 @@ EffectVehicle::~EffectVehicle()
 	// Cleanup DirectX resources (do it in reverse of init)
 	using namespace Utils;
 
+	// Texture settings
 	SafeRelease(m_pDiffuseMapVar);
 	SafeRelease(m_pGlossinessMapVar);
 	SafeRelease(m_pSpecularMapVar);
 	SafeRelease(m_pNormalMapVar);
-	
+
+	// Scene settings
 	SafeRelease(m_pLightDirectionVar);
 	SafeRelease(m_pLightIntensityVar);
 	SafeRelease(m_pLightColorVar);
 	SafeRelease(m_pAmbientLightVar);
 	SafeRelease(m_pGlossinessMapVar);
+
+	// Rasterizer Settings
+	SafeRelease(m_pRasterizerStateVar);
+	SafeRelease(m_pRasterizerStateBFC);
+	SafeRelease(m_pRasterizerStateFFC);
+	SafeRelease(m_pRasterizerStateNC);
 
 }
 
@@ -128,8 +165,6 @@ void EffectVehicle::SetLightColor(ColorRGB lightColor)
 {
 	if(m_pLightColorVar)
 		m_pLightColorVar->SetRawValue(reinterpret_cast<float*>(&lightColor), 0, sizeof(float)*3);
-
-	
 }
 
 void EffectVehicle::SetAmbientlight(ColorRGB ambientLight)
@@ -142,5 +177,33 @@ void EffectVehicle::SetShininess(float shininess)
 {
 	if(m_pShininessVar)
 		m_pShininessVar->SetFloat(shininess);
+}
+
+void EffectVehicle::SetCullMode(int idx) const
+{
+	// 0 = Backface culling
+	// 1 = Frontface culling
+	// 2 = No culling
+	
+	if(m_pRasterizerStateVar)
+	{
+		switch(idx)
+		{
+			case 0:
+				m_pRasterizerStateVar->SetRasterizerState(0, m_pRasterizerStateBFC);
+				break;
+			case 1:
+				m_pRasterizerStateVar->SetRasterizerState(0, m_pRasterizerStateFFC);
+				break;
+			case 2:
+				m_pRasterizerStateVar->SetRasterizerState(0, m_pRasterizerStateNC);
+				break;
+			default:
+				m_pRasterizerStateVar->SetRasterizerState(0, m_pRasterizerStateNC);
+				assert(false && "Invalid cullmode index given");
+				break;
+					
+		}
+	}
 }
 
